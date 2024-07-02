@@ -296,7 +296,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.spectral_prior = self.lmcspecbpl_prior
             else:
                 raise ValueError("lmcspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
-        
+        elif self.spectral_model_name == 'sobbhspec':
+            ## spectral model tailored to analyses of the SOBBH ISGWB
+            ## a fixed alpha=2/3 power law
+            ## with astrophysical priors
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$']
+            self.omegaf = self.twothirdspowerlaw_spectrum
+            self.fancyname = "SOBBH Power law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.sobbh_powerlaw_prior
+            else:
+                raise ValueError("sobbhspec is an inference-only spectral submodel. Use the powerlaw submodel for injections.")
+                
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
@@ -1280,6 +1291,33 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         log_omega0  = -26*theta[0] + 12
+        
+        return [log_omega0]
+    
+    def sobbh_powerlaw_prior(self,theta):
+
+
+        '''
+        Prior function for a power law with fixed slope, with astrophysical prior bounds tailored to the expected SOBBH ISGWB amplitude (see, e.g., Babak+2023)
+        
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha and log(Omega0)
+
+        '''
+
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        log_omega0  = -2*theta[0] - 9
         
         return [log_omega0]
     
