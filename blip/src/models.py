@@ -284,6 +284,17 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
         
+        elif self.spectral_model_name == 'mwspec4par':
+            ## this is a more flexible spectral model tailored to analyses of the MW foreground
+            # it is a 4-parameter truncated power law with astrophysically-motivated prior bounds
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$',r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.omegaf = self.truncated_powerlaw_4par_spectrum
+            self.fancyname = "MW Foreground"+submodel_count
+            if not injection:
+                self.spectral_prior = self.mwspec4par_prior
+            else:
+                raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
+        
         elif self.spectral_model_name == 'lmcspec':
             ## this is a spectral model tailored to analyses of the LMC SGWB
             # it is a broken power law with alpha_1 = 2/3
@@ -1498,6 +1509,38 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         
         return [log_omega0, log_fcut, log_fscale]
+    
+    def mwspec4par_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 2-parameter truncated power law spectral model.
+        
+        Bounds are astrophysically-motivated and tailored to expectations of the MW foreground.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), and log(f_cut)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        alpha = 2*theta[0] - 2
+        log_omega0 = -2*theta[1] - 4
+        log_fcut = -0.7*theta[2] - 2.4
+        log_fscale = -2*theta[3] - 2
+        
+        
+        return [alpha,log_omega0, log_fcut, log_fscale]
     
     def lmcspec_prior(self,theta):
 
