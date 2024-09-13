@@ -287,7 +287,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         elif self.spectral_model_name == 'mwspec4par':
             ## this is a more flexible spectral model tailored to analyses of the MW foreground
             # it is a 4-parameter truncated power law with astrophysically-motivated prior bounds
-            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$',r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             self.omegaf = self.truncated_powerlaw_4par_spectrum
             self.fancyname = "MW Foreground"+submodel_count
             if not injection:
@@ -1514,7 +1514,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
 
         '''
-        Prior function for a stochastic signal search with a 2-parameter truncated power law spectral model.
+        Prior function for a stochastic signal search with a 4-parameter truncated power law spectral model.
         
         Bounds are astrophysically-motivated and tailored to expectations of the MW foreground.
 
@@ -1528,7 +1528,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ---------
 
         theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), and log(f_cut)
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), and log(f_scale)
 
         '''
 
@@ -1540,7 +1540,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         log_fscale = -2*theta[3] - 2
         
         
-        return [alpha,log_omega0, log_fcut, log_fscale]
+        return [alpha, log_omega0, log_fcut, log_fscale]
     
     def lmcspec_prior(self,theta):
 
