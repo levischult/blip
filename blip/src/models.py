@@ -284,6 +284,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
         
+        elif self.spectral_model_name == 'mwspec3par':
+            ## this is a more flexible spectral model tailored to analyses of the MW foreground
+            # it is a 3-parameter truncated power law with astrophysically-motivated prior bounds
+            # fscale parameter is fixed
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$']
+            self.omegaf = self.truncated_powerlaw_3par_spectrum
+            self.fancyname = "MW Foreground"+submodel_count
+            if not injection:
+                if 'log_fscale' not in self.fixedvals.keys():
+                    print("Warning: 3-parameter MWspec (truncated power law + astrophysical priors) spectral model selected, but no scaling parameter (fscale) was provided to the fixedvals dict. Defaulting to astrophysically-motivated fscale=1.25 mHz.")
+                    self.fixedvals['log_fscale'] = -2.907
+                self.spectral_prior = self.mwspec3par_prior
+            else:
+                raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
+        
         elif self.spectral_model_name == 'mwspec4par':
             ## this is a more flexible spectral model tailored to analyses of the MW foreground
             # it is a 4-parameter truncated power law with astrophysically-motivated prior bounds
@@ -1509,6 +1524,37 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         
         return [log_omega0, log_fcut, log_fscale]
+    
+    def mwspec3par_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 3-parameter truncated power law spectral model.
+        
+        Bounds are astrophysically-motivated and tailored to expectations of the MW foreground.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), and log(f_scale)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        alpha = 2*theta[0]
+        log_omega0 = -3*theta[1] - 3
+        log_fcut = -0.7*theta[2] - 2.4
+        
+        
+        return [alpha, log_omega0, log_fcut]
     
     def mwspec4par_prior(self,theta):
 
