@@ -220,7 +220,6 @@ class geometry(sph_geometry):
         # Standard Newton-Raphson iterative procedure
         for _ in range(kepler_order):
             error = ecc_anomaly - e * np.sin(ecc_anomaly) - m # (N, M)
-            print(error)
             ecc_anomaly -= error / (1 - e * np.cos(ecc_anomaly)) # (N, M)
         
         # Compute eccentric anomaly
