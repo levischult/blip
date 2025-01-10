@@ -103,7 +103,7 @@ class geometry(sph_geometry):
         Parameters
         -----------
 
-        tsegmid  :  array
+        tsegmid  :  array (N)
             A numpy array of the tsegmid for each time integration segment.
         
         L  :  float
@@ -175,7 +175,7 @@ class geometry(sph_geometry):
         # alpha_k is iterating over alphaphase for different sc.
         # choosing to follow blip convention: theta+betaphase 
         # rather than betaphase - theta in lisa_orb
-        beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase # (3,)
+        beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase # (3,) or (M,)
         alpha_k = beta_n + alphaphase # (3,)
         sin_alpha = np.sin(alpha_k) # (3,)
         cos_alpha = np.cos(alpha_k) # (3,)
@@ -207,31 +207,42 @@ class geometry(sph_geometry):
         '''
 
         sc_index = np.array([0, 1, 2])
+        since_init_time = lambda t_array : t_array - t_array[0]
+        # LSS 20250110 - this makes a (N, M) array where N is size of times and M is num spacecraft
+        m = beta_n[np.newaxis] + n * since_init_time(times)[np.newaxis].T
+
+
         ecc_anomaly = np.array((tsegmid.shape[0], 3))
-        
-        
-        
-        
-        
-        
-        
-        
-        ## meshgrid arrays
-        Beta_n, Alpha_t = np.meshgrid(beta_n, at)
 
+        # The following expression is valid up to e**4
+        ecc_anomaly = m + (e - e**3/8) * np.sin(m) + 0.5 * e**2 * np.sin(2 * m) \
+            + 3/8 * e**3 * np.sin(3 * m) # (N, M)
+        # Standard Newton-Raphson iterative procedure
+        for _ in range(kepler_order):
+            error = ecc_anomaly - e * np.sin(ecc_anomaly) - m # (N, M)
+            print(error)
+            ecc_anomaly -= error / (1 - e * np.cos(ecc_anomaly)) # (N, M)
+        
+        # Compute eccentric anomaly
+        psi = ecc_anomaly # (N, M)
+        cos_psi = np.cos(psi) # (N, M)
+        sin_psi = np.sin(psi) # (N, M)
 
-
-
-        ## Calculate inclination and positions for each satellite.
-        x_n = a*np.cos(Alpha_t) + a*e*(np.sin(Alpha_t)*np.cos(Alpha_t)*np.sin(Beta_n) - (1+(np.sin(Alpha_t))**2)*np.cos(Beta_n))
-        y_n = a*np.sin(Alpha_t) + a*e*(np.sin(Alpha_t)*np.cos(Alpha_t)*np.cos(Beta_n) - (1+(np.cos(Alpha_t))**2)*np.sin(Beta_n))
-        z_n = -np.sqrt(3)*a*e*np.cos(Alpha_t - Beta_n)
-
+        # Reference position
+        ref_x = a * cos_i * (cos_psi - e) # (N, M)
+        ref_y = a * np.sqrt(1 - e**2) * sin_psi # (N, M)
+        ref_z = -a * sin_i * (cos_psi - e) # (N, M)
+        # Spacecraft position
+        sc_x = cos_alpha[np.newaxis, sc_index] * ref_x \
+            - sin_alpha[np.newaxis, sc_index] * ref_y # (N, M)
+        sc_y = sin_alpha[np.newaxis, sc_index] * ref_x \
+            + cos_alpha[np.newaxis, sc_index] * ref_y # (N, M)
+        sc_z = ref_z # (N, M)
 
         ## Construct position vectors r_n
-        rs1 = np.array([x_n[:, 0],y_n[:, 0],z_n[:, 0]])
-        rs2 = np.array([x_n[:, 1],y_n[:, 1],z_n[:, 1]])
-        rs3 = np.array([x_n[:, 2],y_n[:, 2],z_n[:, 2]])
+        rs1 = np.array([sc_x[:, 0],sc_y[:, 0],sc_z[:, 0]])
+        rs2 = np.array([sc_x[:, 1],sc_y[:, 1],sc_z[:, 1]])
+        rs3 = np.array([sc_x[:, 2],sc_y[:, 2],sc_z[:, 2]])
 
         return rs1, rs2, rs3
 
