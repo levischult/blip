@@ -4,6 +4,7 @@ import numpy.linalg as LA
 from multiprocessing import Pool
 import healpy as hp
 from blip.src.sph_geometry import sph_geometry
+import astropy.constants as apyconst
 
 class geometry(sph_geometry):
 
@@ -155,29 +156,34 @@ class geometry(sph_geometry):
         # LSS 20250108 - Orbital eccentricity
         e = np.sqrt(1 + ((4 * alpha * np.cos(nu)) / np.sqrt(3)) + ((4 * alpha**2) / 3)) - 1
 
+        ## Alpha and beta phases allow for changing of initial satellite orbital phases; default initial conditions are alphaphase=betaphase=0.
+        betaphase = 0
+        alphaphase = 0
+
         # LSS 20250108 - now we calculate things that are necessary later for
         # position calculations
         tan_i = alpha * np.sin(nu) / ((np.sqrt(3) / 2) + alpha * np.cos(nu))
         cos_i = 1 / np.sqrt(1 + tan_i**2)
         sin_i = tan_i * cos_i
-    
+        n = np.sqrt(apyconst.GM_sun.value / a**3)
 
-        ## Alpha and beta phases allow for changing of initial satellite orbital phases; default initial conditions are alphaphase=betaphase=0.
-        betaphase = 0
-        alphaphase = 0
+        ## Initialize arrays
+        # LSS 20250109 - beta_n is self.theta - betaphase in lisa orbits.
+        # I think that m_init1 in lisa orbits is betaphase in blip
+        # and lambda1 is alphaphase in blip.
+        # so m_init = betaphase - beta_n 
+        # alpha_k is iterating over alphaphase for different sc.
+        # choosing to follow blip convention: theta+betaphase 
+        # rather than betaphase - theta in lisa_orb
+        beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase # (3,)
+        alpha_k = beta_n + alphaphase # (3,)
+        sin_alpha = np.sin(alpha_k) # (3,)
+        cos_alpha = np.cos(alpha_k) # (3,)
+
+        gr_const = ((n * a) / apyconst.c.value)**2
 
         ## Orbital angle alpha(t)
-        at = (2*np.pi/31557600)*times + alphaphase
-
-        ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
-        e = self.armlength/(2*a*np.sqrt(3))
-
-        # LSS 20250109 - beta_n is self.theta in lisa orbits.
-        # LSS 20250109 - I think that m_init1 in lisa orbits is betaphase in blip
-        # LSS 20250109 - and lambda1 is alphaphase in blip.
-        # LSS 20250109 - so m_init = beta_n and at = 
-        ## Initialize arrays
-        beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase
+        #at = (2*np.pi/31557600)*times + alphaphase
 
         '''
         Estimate the eccentric anomaly.
@@ -200,7 +206,9 @@ class geometry(sph_geometry):
         procedure converges in one iteration using double precision.
         '''
 
-
+        sc_index = np.array([0, 1, 2])
+        ecc_anomaly = np.array((tsegmid.shape[0], 3))
+        
         
         
         
