@@ -383,7 +383,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
-            self.subscript = "_{\mathrm{I}}"
+            self.subscript = r"_{\mathrm{I}}"
             self.color='darkorange'
             self.has_map = False
 
@@ -436,7 +436,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## plotting stuff
             self.fancyname = "Anisotropic "+self.fancyname
-            self.subscript = "_{\mathrm{A}}"
+            self.subscript = r"_{\mathrm{A}}"
             self.color = 'teal'
             self.has_map = True
             self.basis = 'sph'
@@ -557,7 +557,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$z_{\mathrm{h}}$'] = self.injvals['zh']
                 ## plotting stuff
                 self.fancyname = "Galactic Foreground"
-                self.subscript = "_{\mathrm{G}}"
+                self.subscript = r"_{\mathrm{G}}"
                 self.color = 'mediumorchid'
                 ## generate skymap
                 self.skymap = astro.generate_galactic_foreground(self.injvals['rh'],self.injvals['zh'],self.params['nside'])
@@ -567,21 +567,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             elif self.spatial_model_name == 'lmc':
                 ## plotting stuff
                 self.fancyname = "LMC"
-                self.subscript = "_{\mathrm{LMC}}"
+                self.subscript = r"_{\mathrm{LMC}}"
                 self.color = 'darkmagenta'
                 ## generate skymap
                 self.skymap = astro.generate_sdg(self.params['nside']) ## sdg defaults are for the LMC
             elif self.spatial_model_name == 'dwarfgalaxy':
                 ## plotting stuff
                 self.fancyname = "Dwarf Galaxy"+submodel_count
-                self.subscript = "_{\mathrm{DG}}"
+                self.subscript = r"_{\mathrm{DG}}"
                 self.color = 'maroon'
                 ## generate skymap
                 self.skymap = astro.generate_sdg(self.params['nside'],ra=self.injvals['sdg_RA'], dec=self.injvals['sdg_DEC'], D=self.injvals['sdg_dist'], r=self.injvals['sdg_rad'], N=self.injvals['sdg_N'])
             elif self.spatial_model_name == 'pointsource':
                 ## plotting stuff
                 self.fancyname = "Point Source"+submodel_count
-                self.subscript = "_{\mathrm{1P}}"
+                self.subscript = r"_{\mathrm{1P}}"
                 self.color = 'forestgreen'
                 ## generate skymap
                 ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
@@ -597,7 +597,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             elif self.spatial_model_name == 'pointsources':
                 ## plotting stuff
                 self.fancyname = "Multiple Point Sources"+submodel_count
-                self.subscript = "_{\mathrm{NP}}"
+                self.subscript = r"_{\mathrm{NP}}"
                 self.color = 'forestgreen'
                 ## generate skymap
                 ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
@@ -614,7 +614,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## revisit this when I have duplicates sorted, maybe unnecessary (could just have 2x point source injection components)
                 ## plotting stuff
                 self.fancyname = "Two Point Sources"+submodel_count
-                self.subscript = "_{\mathrm{2P}}"
+                self.subscript = r"_{\mathrm{2P}}"
                 self.color = 'gold'
                 ## generate skymap
                 self.skymap = astro.generate_two_point_source(self.injvals['theta_1'],self.injvals['phi_1'],self.injvals['theta_2'],self.injvals['phi_2'],self.params['nside'])
@@ -622,7 +622,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## flag the fact that we have a population skymap
                 self.skypop = True
                 ## plotting stuff
-                self.subscript = "_{\mathrm{P}}"
+                self.subscript = r"_{\mathrm{P}}"
                 self.color = 'midnightblue'
                 if self.spectral_model_name != 'population':
                     ## generate population if still needed
@@ -648,7 +648,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     zh = 0.3
                 ## plotting stuff
                 self.fancyname = "Galactic Foreground"
-                self.subscript = "_{\mathrm{G}}"
+                self.subscript = r"_{\mathrm{G}}"
                 self.color = 'mediumorchid'
                 ## generate skymap
                 self.skymap = astro.generate_galactic_foreground(rh,zh,self.params['nside'])
@@ -669,21 +669,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     raise ValueError("Using hotpixel spatial model but either no coordinates were provided to the fixedvals dict or invalid notation was used.")
                 ## plotting stuff
                 self.fancyname = "Point Source"
-                self.subscript = "_{\mathrm{1P}}"
+                self.subscript = r"_{\mathrm{1P}}"
                 self.color = 'forestgreen'
                 self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention,pad=True)
                 self.fixed_map = True
             
             elif self.spatial_model_name == 'pixiso':
                 self.fancyname = "Pixel Isotropic"
-                self.subscript = "_{\mathrm{PI}}"
+                self.subscript = r"_{\mathrm{PI}}"
                 self.color = 'forestgreen'
                 self.skymap = np.ones(hp.nside2npix(self.params['nside']))
                 self.fixed_map = True
             
             elif self.spatial_model_name == 'popmap':
                 self.fancyname = "Population Skymap"
-                self.subscript = "_{\mathrm{PM}}"
+                self.subscript = r"_{\mathrm{PM}}"
                 self.color = 'mediumorchid'
                 popkey = self.fixedvals['pop_id']
                 popdict = self.inj['popdict'][popkey]
@@ -773,7 +773,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## only infers the vertical scale height z_h
                 ## plotting stuff
                 self.fancyname = "1-Parameter Milky Way"
-                self.subscript = "_{\mathrm{G}}"
+                self.subscript = r"_{\mathrm{G}}"
                 self.color = 'mediumorchid'
                 self.has_map = True
                 self.fixed_map = False
@@ -806,7 +806,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## model to infer the Milky Way spatial distribution, using a basic 2-parameter model of the Galaxy
                 ## plotting stuff
                 self.fancyname = "2-Parameter Milky Way"
-                self.subscript = "_{\mathrm{G}}"
+                self.subscript = r"_{\mathrm{G}}"
                 self.color = 'mediumorchid'
                 self.has_map = True
                 self.fixed_map = False
@@ -2588,7 +2588,7 @@ class Injection():#geometry,sph_geometry):
             
             ## tell healpy to shush
             with log_manager(logging.ERROR):
-                hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.mollview(Omegamap_pix, coord=coord, title=r'Injected pixel map $\Omega (f = 1 mHz)$', unit=r"$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
             if save_figures:
@@ -2605,7 +2605,7 @@ class Injection():#geometry,sph_geometry):
             Omegamap_inj = Omega_1mHz * cm.sph_skymap
             ## tell healpy to shush
             with log_manager(logging.ERROR):
-                hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.mollview(Omegamap_inj, coord=coord, title=r'Injected angular distribution map $\Omega (f = 1 mHz)$', unit=r"$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
             if save_figures:
