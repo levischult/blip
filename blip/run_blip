@@ -698,15 +698,6 @@ def blip(paramsfile='params.ini',resume=False):
         from blip.src.dynesty_engine import dynesty_engine
         nlive                   = int(config.get("run_params", "nlive", fallback=800))
         params['sample_method'] = str(config.get("run_params", "sample_method", fallback='rwalk'))
-    # nessai
-    elif params['sampler'] == 'nessai':
-        from blip.src.nessai_engine import nessai_engine
-        nlive                        = int(config.get("run_params", "nlive", fallback=2000))
-        ## flow tuning
-        params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons", fallback='scale_greedy'))
-        if params['nessai_neurons']=='manual':
-            params['n_neurons']      = int(config.get("run_params", "n_neurons", fallback=20))
-        params['reset_flow']         = int(config.get("run_params", "reset_flow", fallback=16))
     ## emcee
     elif params['sampler'] == 'emcee':
         from blip.src.emcee_engine import emcee_engine
@@ -722,11 +713,11 @@ def blip(paramsfile='params.ini',resume=False):
         params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
         
     else:
-        raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', 'numpyro', or 'nessai' for now.")
-    # checkpointing (dynesty+nessai only for now)
-    if params['sampler']=='dynesty' or params['sampler'] == 'nessai' or params['sampler'] == 'numpyro':
+        raise ValueError("Unknown sampler. Supported samplers: 'dynesty', 'emcee', and 'numpyro'.")
+    # checkpointing (dynesty+numpyro only for now)
+    if params['sampler']=='dynesty' or params['sampler'] == 'numpyro':
         params['checkpoint']            = int(config.get("run_params", "checkpoint", fallback=0))
-        ## numpyro's checkpoint_interval is in number of samples, vs. seconds for dynesty/nessai
+        ## numpyro's checkpoint_interval is in number of samples, vs. seconds for dynesty
         if params['sampler'] == 'numpyro':
             params['checkpoint_at'] = str(config.get("run_params", "checkpoint_at", fallback='end'))
             if params['checkpoint_at'] == 'interval':
@@ -763,7 +754,7 @@ def blip(paramsfile='params.ini',resume=False):
         ## save the Model and Injection as needed
         
         ## the Injection is massive, so discard the responses we no longer need
-        ## saving & discarding now, as opposed to at the end of the run also saves space in the dynesty/nessai checkpoint files.
+        ## saving & discarding now, as opposed to at the end of the run also saves space in the checkpoint files.
         if not params['load_data']:
             ## save Injection
             for cmn in lisa.Injection.component_names:
@@ -933,32 +924,8 @@ def blip(paramsfile='params.ini',resume=False):
         ## save chain
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     
-    elif params['sampler'] == 'nessai':
-        # Create engine
-        if not resume:
-            engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])    
-        else:
-            engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])
-        ## run sampler
-        if params['checkpoint']:
-            checkpoint_file = params['out_dir']+'/checkpoint.pickle'
-            t1 = time.time()
-            post_samples, logz, logzerr = nessai_engine.run_engine_with_checkpointing(engine,parameters,model,params['out_dir']+'/nessai_output/',checkpoint_file)
-            t2= time.time()
-            print("Elapsed time to converge: {} s".format(t2-t1))
-            np.savetxt(params['out_dir']+'/time_elapsed.txt',np.array([t2-t1]))
-        else:
-            t1 = time.time()
-            post_samples, logz, logzerr = nessai_engine.run_engine(engine,parameters,model,params['out_dir']+'/nessai_output/')
-            t2= time.time()
-            print("Elapsed time to converge: {} s".format(t2-t1))
-            np.savetxt(params['out_dir']+'/time_elapsed.txt',np.array([t2-t1]))
-
-        # Save posteriors to file
-        np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
-    
     else:
-        raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, numpyro, & emcee are supported')
+        raise TypeError('Unknown sampler model chosen. Only dynesty, numpyro, & emcee are supported')
     
 #    
     ## Safely re-save the config pickle, now with the model parameters
