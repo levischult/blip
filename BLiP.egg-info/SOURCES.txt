@@ -8,6 +8,11 @@ BLiP.egg-info/requires.txt
 BLiP.egg-info/top_level.txt
 blip/__init__.py
 blip/run_blip
+blip.egg-info/PKG-INFO
+blip.egg-info/SOURCES.txt
+blip.egg-info/dependency_links.txt
+blip.egg-info/requires.txt
+blip.egg-info/top_level.txt
 blip/src/__init__.py
 blip/src/astro.py
 blip/src/clebschGordan.py
@@ -18,7 +23,6 @@ blip/src/hierarchical.py
 blip/src/instrNoise.py
 blip/src/makeLISAdata.py
 blip/src/models.py
-blip/src/nessai_engine.py
 blip/src/numpyro_engine.py
 blip/src/orbitinglisa.py
 blip/src/sph_geometry.py
