@@ -41,16 +41,12 @@ Posterior plots will be automatically created in the specified output directory,
 More details can be found in [the code documentation](https://blip.readthedocs.io/en/latest/).
 
 
-## GPU DEV BRANCH NOTE FOR UMN MSI USERS
+## GPU DEV BRANCH NOTE FOR UMN MSI USERS (outdated, need to update this)
 Jax, Torch, and Numpyro installation works on the UMN MSI clusters when performed as follows:
 conda create --name gpu-env python=3.10.0
 ## newer versions of JAX don't play well with the MSI GPUs/CUDA version (11.2)
 pip install jax==0.4.3 jaxlib==0.4.3+cuda11.cudnn82 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ## newer versions of torch can have similar issues
 pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
-## elsewhere; we need the dev version of numpyro to do checkpointing
-git clone https://github.com/pyro-ppl/numpyro.git 
-cd numpyro
-pip install -e .
 ## in blip repository
 pip install -e .
