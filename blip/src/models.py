@@ -22,7 +22,7 @@ import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
 
-class submodel(geometry,sph_geometry,fast_geometry,clebschGordan,instrNoise):
+class submodel(fast_geometry,clebschGordan,instrNoise):
     '''
     Modular class that can represent either an injection or an analysis model. Will have different attributes depending on use case.
     
@@ -357,30 +357,30 @@ class submodel(geometry,sph_geometry,fast_geometry,clebschGordan,instrNoise):
         
         ## This is the isotropic spatial model, and has no additional parameters.
         if self.spatial_model_name == 'isgwb':
-            if self.params['tdi_lev'] == 'michelson':
-                if parallel_response:
-                    self.response = self.isgwb_mich_response_parallel
-                    self.response_non_parallel = self.isgwb_mich_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.isgwb_mich_response
-            elif self.params['tdi_lev'] == 'xyz':
-                if parallel_response:
-                    self.response = self.isgwb_xyz_response_parallel
-                    self.response_non_parallel = self.isgwb_xyz_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.isgwb_xyz_response
-                
-            elif self.params['tdi_lev'] == 'aet':
-                if parallel_response:
-                    self.response = self.isgwb_aet_response_parallel
-                    self.response_non_parallel = self.isgwb_aet_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.isgwb_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            
-            ## compute response matrix
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+#            if self.params['tdi_lev'] == 'michelson':
+#                if parallel_response:
+#                    self.response = self.isgwb_mich_response_parallel
+#                    self.response_non_parallel = self.isgwb_mich_response ## useful for data frequencies, external regen
+#                else:
+#                    self.response = self.isgwb_mich_response
+#            elif self.params['tdi_lev'] == 'xyz':
+#                if parallel_response:
+#                    self.response = self.isgwb_xyz_response_parallel
+#                    self.response_non_parallel = self.isgwb_xyz_response ## useful for data frequencies, external regen
+#                else:
+#                    self.response = self.isgwb_xyz_response
+#                
+#            elif self.params['tdi_lev'] == 'aet':
+#                if parallel_response:
+#                    self.response = self.isgwb_aet_response_parallel
+#                    self.response_non_parallel = self.isgwb_aet_response ## useful for data frequencies, external regen
+#                else:
+#                    self.response = self.isgwb_aet_response
+#            else:
+#                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+#            
+#            ## compute response matrix
+#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
@@ -393,9 +393,9 @@ class submodel(geometry,sph_geometry,fast_geometry,clebschGordan,instrNoise):
                 ## prior transform
                 self.prior = self.isotropic_prior
                 self.cov = self.compute_cov_isgwb
-            else:
+#            else:
                 ## create a wrapper b/c isotropic and anisotropic injection responses are different
-                self.inj_response_mat = self.response_mat
+#                self.inj_response_mat = self.response_mat
         
         ## This is the spherical harmonic spatial model. It is the workhorse of the spherical harmonic anisotropic analysis.
         ## It can also be used to perform arbitrary injections in the spherical harmonic basis via direct specification of the blms.
@@ -2207,7 +2207,7 @@ class Model():
 ################################################### 
 
     
-class Injection():#geometry,sph_geometry):
+class Injection(fast_geometry):#geometry,sph_geometry):
     '''
     Class to house all injection attributes in a modular fashion.
     '''
@@ -2291,7 +2291,14 @@ class Injection():#geometry,sph_geometry):
 
                 if cm.has_map:
                     self.plot_skymaps(component_name)
-            
+        
+        ## Having initialized all the components, now compute the LISA response functions
+        t1 = time.time()
+        fast_geometry.__init__(self)
+        self.generic_michelson_response(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names])
+        t2 = time.time()
+        print("Time elapsed for all components via joint computation was {} s.".format(t2-t1))
+        
         ## initialize default plotting lower ylim
         self.plot_ylim = None
         

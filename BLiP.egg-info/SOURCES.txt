@@ -18,6 +18,7 @@ blip/src/astro.py
 blip/src/clebschGordan.py
 blip/src/dynesty_engine.py
 blip/src/emcee_engine.py
+blip/src/fast_geometry.py
 blip/src/geometry.py
 blip/src/hierarchical.py
 blip/src/instrNoise.py

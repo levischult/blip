@@ -1,27 +1,25 @@
 import numpy as np
-import jax.numpy.linalg as LA
+import numpy.linalg as LA
 #from scipy.special import lpmn, sph_harm
 from multiprocessing import Pool
-from jax import config
-config.update("jax_enable_x64", True)
-import jax
-import jax.numpy as jnp
+#from jax import config
+#config.update("jax_enable_x64", True)
 import healpy as hp
 from scipy.special import sph_harm
 from blip.src.sph_geometry import sph_geometry
 
-class geometry(sph_geometry):
+class fast_geometry(sph_geometry):
 
     '''
     Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.
     '''
 
     def __init__(self):
-
-        if (not self.injection and self.params['sph_flag']) or (self.injection and self.inj['sph_flag']):
-        
-#        if self.params['sph_flag'] or self.inj['sph_flag']:
-            sph_geometry.__init__(self)
+        self.armlength = 2.5e9
+#        if (not self.injection and self.params['sph_flag']) or (self.injection and self.inj['sph_flag']):
+#        
+##        if self.params['sph_flag'] or self.inj['sph_flag']:
+#            sph_geometry.__init__(self)
 
 
 
@@ -153,7 +151,10 @@ class geometry(sph_geometry):
         '''
         Wrapper function for unpacking responses of shape 3 x 3 x frequency x time
         '''
-        sm.response_mat[:,:,ii,:] = Rf
+        if not self.plot_flag:
+            sm.response_mat[:,:,ii,:] = Rf
+        else:
+            sm.fdata_response_mat[:,:,ii,:] = Rf
         return
     
     def unpack_wrapper_33ftn(self,sm,ii,Rf):
@@ -162,7 +163,10 @@ class geometry(sph_geometry):
         
         Spatial can mean either spherical harmonics or pixels.
         '''
-        sm.response_mat[:,:,ii,:,:] = Rf
+        if not self.plot_flag:
+            sm.response_mat[:,:,ii,:,:] = Rf
+        else:
+            sm.fdata_response_mat[:,:,ii,:,:] = Rf
         return
     
     
@@ -188,47 +192,47 @@ class geometry(sph_geometry):
         '''
         
         # Calculate GW transfer function for the michelson channels
-        gammaU_plus    =    1/2 * (jnp.sinc((self.f0[ii])*(1 - self.udir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(3+self.udir)) + \
-                         jnp.sinc((self.f0[ii])*(1 + self.udir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(1+self.udir)))
+        gammaU_plus    =    1/2 * (np.sinc((self.f0[ii])*(1 - self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(3+self.udir)) + \
+                         np.sinc((self.f0[ii])*(1 + self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(1+self.udir)))
 
-        gammaV_plus    =    1/2 * (jnp.sinc((self.f0[ii])*(1 - self.vdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(3+self.vdir)) + \
-                         jnp.sinc((self.f0[ii])*(1 + self.vdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(1+self.vdir)))
+        gammaV_plus    =    1/2 * (np.sinc((self.f0[ii])*(1 - self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3+self.vdir)) + \
+                         np.sinc((self.f0[ii])*(1 + self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1+self.vdir)))
 
-        gammaW_plus    =    1/2 * (jnp.sinc((self.f0[ii])*(1 - self.wdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(3+self.wdir)) + \
-                         jnp.sinc((self.f0[ii])*(1 + self.wdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(1+self.wdir)))
+        gammaW_plus    =    1/2 * (np.sinc((self.f0[ii])*(1 - self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3+self.wdir)) + \
+                         np.sinc((self.f0[ii])*(1 + self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1+self.wdir)))
 
 
         # Calculate GW transfer function for the michelson channels
-        gammaU_minus    =    1/2 * (jnp.sinc((self.f0[ii])*(1 + self.udir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(3 - self.udir)) + \
-                         jnp.sinc((self.f0[ii])*(1 - self.udir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(1 - self.udir)))
+        gammaU_minus    =    1/2 * (np.sinc((self.f0[ii])*(1 + self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(3 - self.udir)) + \
+                         np.sinc((self.f0[ii])*(1 - self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(1 - self.udir)))
 
-        gammaV_minus    =    1/2 * (jnp.sinc((self.f0[ii])*(1 + self.vdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(3 - self.vdir)) + \
-                         jnp.sinc((self.f0[ii])*(1 - self.vdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(1 - self.vdir)))
+        gammaV_minus    =    1/2 * (np.sinc((self.f0[ii])*(1 + self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3 - self.vdir)) + \
+                         np.sinc((self.f0[ii])*(1 - self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1 - self.vdir)))
 
-        gammaW_minus    =    1/2 * (jnp.sinc((self.f0[ii])*(1 + self.wdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(3 - self.wdir)) + \
-                         jnp.sinc((self.f0[ii])*(1 - self.wdir)/np.pi)*jnp.exp(-1j*self.f0[ii]*(1 - self.wdir)))
+        gammaW_minus    =    1/2 * (np.sinc((self.f0[ii])*(1 + self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3 - self.wdir)) + \
+                         np.sinc((self.f0[ii])*(1 - self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1 - self.wdir)))
 
 
         ## Michelson antenna patterns
         ## Calculate Fplus
-        Fplus1 = 0.5*(self.Fplus_u*gammaU_plus - self.Fplus_v*gammaV_plus)*jnp.exp(-1j*self.f0[ii]*(self.udir + self.vdir)/np.sqrt(3))
-        Fplus2 = 0.5*(self.Fplus_w*gammaW_plus - self.Fplus_u*gammaU_minus)*jnp.exp(-1j*self.f0[ii]*(-self.udir + self.vdir)/np.sqrt(3))
-        Fplus3 = 0.5*(self.Fplus_v*gammaV_minus - self.Fplus_w*gammaW_minus)*jnp.exp(1j*self.f0[ii]*(self.vdir + self.wdir)/np.sqrt(3))
+        Fplus1 = 0.5*(self.Fplus_u*gammaU_plus - self.Fplus_v*gammaV_plus)*np.exp(-1j*self.f0[ii]*(self.udir + self.vdir)/np.sqrt(3))
+        Fplus2 = 0.5*(self.Fplus_w*gammaW_plus - self.Fplus_u*gammaU_minus)*np.exp(-1j*self.f0[ii]*(-self.udir + self.vdir)/np.sqrt(3))
+        Fplus3 = 0.5*(self.Fplus_v*gammaV_minus - self.Fplus_w*gammaW_minus)*np.exp(1j*self.f0[ii]*(self.vdir + self.wdir)/np.sqrt(3))
 
         ## Calculate Fcross
-        Fcross1 = 0.5*(self.Fcross_u*gammaU_plus  - self.Fcross_v*gammaV_plus)*jnp.exp(-1j*self.f0[ii]*(self.udir + self.vdir)/np.sqrt(3))
-        Fcross2 = 0.5*(self.Fcross_w*gammaW_plus  - self.Fcross_u*gammaU_minus)*jnp.exp(-1j*self.f0[ii]*(-self.udir + self.vdir)/np.sqrt(3))
-        Fcross3 = 0.5*(self.Fcross_v*gammaV_minus - self.Fcross_w*gammaW_minus)*jnp.exp(1j*self.f0[ii]*(self.vdir + self.wdir)/np.sqrt(3))
+        Fcross1 = 0.5*(self.Fcross_u*gammaU_plus  - self.Fcross_v*gammaV_plus)*np.exp(-1j*self.f0[ii]*(self.udir + self.vdir)/np.sqrt(3))
+        Fcross2 = 0.5*(self.Fcross_w*gammaW_plus  - self.Fcross_u*gammaU_minus)*np.exp(-1j*self.f0[ii]*(-self.udir + self.vdir)/np.sqrt(3))
+        Fcross3 = 0.5*(self.Fcross_v*gammaV_minus - self.Fcross_w*gammaW_minus)*np.exp(1j*self.f0[ii]*(self.vdir + self.wdir)/np.sqrt(3))
 
         ## Detector response averaged over polarization
         ## The travel time phases for the which are relevent for the cross-channel are
         ## accounted for in the Fplus and Fcross expressions above.
-        F1_ii  = (1/2)*((jnp.absolute(Fplus1))**2 + (jnp.absolute(Fcross1))**2)
-        F2_ii  = (1/2)*((jnp.absolute(Fplus2))**2 + (jnp.absolute(Fcross2))**2) 
-        F3_ii  = (1/2)*((jnp.absolute(Fplus3))**2 + (jnp.absolute(Fcross3))**2) 
-        F12_ii = (1/2)*(jnp.conj(Fplus1)*Fplus2 + jnp.conj(Fcross1)*Fcross2)
-        F13_ii = (1/2)*(jnp.conj(Fplus1)*Fplus3 + jnp.conj(Fcross1)*Fcross3)
-        F23_ii = (1/2)*(jnp.conj(Fplus2)*Fplus3 + jnp.conj(Fcross2)*Fcross3)
+        F1_ii  = (1/2)*((np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2)
+        F2_ii  = (1/2)*((np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2) 
+        F3_ii  = (1/2)*((np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2) 
+        F12_ii = (1/2)*(np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2)
+        F13_ii = (1/2)*(np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3)
+        F23_ii = (1/2)*(np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3)
         
         sm_response_slices = []
         for sm in self.submodels:
@@ -256,12 +260,12 @@ class geometry(sph_geometry):
         Fplus_ij, Fcross_ij (float arrays) : Geometric components of the plus and cross antenna pattern functions for LISA arms i and j
         '''
         
-        interior_prod = jnp.einsum("ik,jk -> ijk",arm_hat_ij, arm_hat_ij)
+        interior_prod = np.einsum("ik,jk -> ijk",arm_hat_ij, arm_hat_ij)
         
-        return 0.5*jnp.einsum("ijk,ijl", interior_prod, mhat_prod - nhat_prod), 0.5*jnp.einsum("ijk,ijl", interior_prod, mhat_prod + nhat_prod)
+        return 0.5*np.einsum("ijk,ijl", interior_prod, mhat_prod - nhat_prod), 0.5*np.einsum("ijk,ijl", interior_prod, mhat_prod + nhat_prod)
     
     
-    def generic_mich_response(self,f0,tsegmid,submodels):
+    def generic_michelson_response(self,f0,tsegmid,submodels,plot_flag=False):
         
         '''
         Prototype federated function for response function calculations, designed to eliminate all redundant calculations when computing the response functions for multiple submodels.
@@ -286,7 +290,8 @@ class geometry(sph_geometry):
         response_mat(s) (numpy array/s) : the appropriate response function for each submodel, attached to that submodel
         
         '''
-        
+        self.submodels = submodels
+        self.plot_flag = plot_flag
         ## basic preliminaries
         self.f0 = f0
         
@@ -294,7 +299,7 @@ class geometry(sph_geometry):
         self.dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
         
         ## let's do something like
-        fullsky = np.any([sm.fullsky for sm in submodels if hasattr(sm,"fullsky")])
+        fullsky = np.any([sm.fullsky for sm in self.submodels if hasattr(sm,"fullsky")])
         
         # Make relevant array of pixel indices
         if fullsky:
@@ -303,7 +308,7 @@ class geometry(sph_geometry):
             pix_idx  = np.arange(npix)
         else:
             ## otherwise, make a map of everwhere on the sky where there is power across all submodels
-            combined_map = np.sum([sm.skymap for sm in submodels if hasattr(sm,'skymap')]) ##THIS IS PSEUDOCODE, FILL IN WITH ACTUAL VARS
+            combined_map = np.sum([sm.skymap for sm in self.submodels if hasattr(sm,'skymap')]) ##THIS IS PSEUDOCODE, FILL IN WITH ACTUAL VARS
             ## Array of pixel indices where the combined map is nonzero
             pix_idx = np.flatnonzero(combined_map)
 
@@ -317,12 +322,13 @@ class geometry(sph_geometry):
         ################################################################################
         ## ode block to set up which submodels we have and any specifics they require ##
         ################################################################################
-        for sm in submodels:
+        for sm in self.submodels:
             ## instantiate the response array and specify additional wrappers for unpacking
             ## this is mapped to the response_wrapper_func attached to the submodel
             if sm.spatial_model_name == 'isgwb':
                 sm.unpack_response = self.unpack_wrapper_33ft
                 sm.response_shape = (3,3,f0.size,tsegmid.size)
+                sm.response_wrapper_func = self.isgwb_wrapper
             elif sm.basis == 'sph':
                 sm.unpack_response = self.unpack_wrapper_33ftn
                 ## array size of almax
@@ -334,13 +340,16 @@ class geometry(sph_geometry):
                     lval, mval = self.idxtoalm(sm.almax, ii)
                     self.Ylms[:, ii] = sph_harm(mval, lval, phi, theta)
                 sm.response_shape = (3,3,f0.size, tsegmid.size,alm_size)
+                sm.response_wrapper_func = self.sph_asgwb_wrapper
             elif sm.basis == 'pixel':
                 if hasattr(sm,"fixedmap") and sm.fixedmap:
                     sm.unpack_response = self.unpack_wrapper_33ft
                     sm.response_shape = (3,3,f0.size, tsegmid.size)
+                    sm.response_wrapper_func = self.pix_convolved_asgwb_wrapper
                 else:
                     sm.unpack_response = self.unpack_wrapper_33ftn
                     sm.response_shape = (3,3,f0.size, tsegmid.size,pix_idx.size)
+                    sm.response_wrapper_func = self.pix_unconvolved_asgwb_wrapper
             else:
                 raise ValueError("Specification of the response wrapper is unrecognized. Check the implementation of response_wrapper_func for submodel "+sm.spatial_model_name+" in models.py.")
         
@@ -380,9 +389,9 @@ class geometry(sph_geometry):
         nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
 
         ## outer (self-) products of mhat and nhat
-        mhat_op = jnp.einsum("ik,jk -> ijk",mhat,mhat)
+        mhat_op = np.einsum("ik,jk -> ijk",mhat,mhat)
         
-        nhat_op = jnp.einsum("ik,jk -> ijk",nhat,nhat)
+        nhat_op = np.einsum("ik,jk -> ijk",nhat,nhat)
         
         # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
         ## we have jitted this function
@@ -408,19 +417,25 @@ class geometry(sph_geometry):
         ###############################################################################################################################################################
 
         
-        for sm in submodels:
+        for sm in self.submodels:
             ## instantiate the response arrays
-            sm.response_mat = np.zeros(sm.response_shape, dtype='complex') ## we can define what shape the final response should be in the submodel initialzation
+            if plot_flag:
+                sm.fdata_response_mat = np.zeros(sm.response_shape, dtype='complex') 
+            else:
+                sm.response_mat = np.zeros(sm.response_shape, dtype='complex') ## we can define what shape the final response should be in the submodel initialzation
         
         # Calculate the detector response for each frequency
         idx = range(0,f0.size)
         
         with Pool(self.inj['response_nthread']) as pool:
             result = pool.map(self.frequency_response_wrapper,idx)
-            for sm in submodels:
+            for jj, sm in enumerate(self.submodels):
                 for ii, R_f in zip(idx,result):
                     ## index appropriately for each submodel
-                    sm.unpack_response(sm,ii,R_f)
+                    sm.unpack_response(sm,ii,R_f[jj])
+                ## handle some aliasing
+                if sm.spatial_model_name=='isgwb':
+                    sm.inj_response_mat = sm.response_mat
 
         return
 
