@@ -9,6 +9,7 @@ from multiprocessing import Pool
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
+from blip.src.fast_geometry import fast_geometry
 from blip.src.clebschGordan import clebschGordan
 from blip.src.astro import Population
 from blip.src.instrNoise import instrNoise
@@ -21,7 +22,7 @@ import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
 
-class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
+class submodel(geometry,sph_geometry,fast_geometry,clebschGordan,instrNoise):
     '''
     Modular class that can represent either an injection or an analysis model. Will have different attributes depending on use case.
     
@@ -386,6 +387,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.subscript = r"_{\mathrm{I}}"
             self.color='darkorange'
             self.has_map = False
+            self.fullsky = True
 
             if not injection:
                 ## prior transform
@@ -439,6 +441,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.subscript = r"_{\mathrm{A}}"
             self.color = 'teal'
             self.has_map = True
+            self.fullsky = True
             self.basis = 'sph'
             
             # add the blms
