@@ -522,7 +522,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))
     params['nside'] = int(config.get("params", "nside"))
     params['lmax'] = int(config.get("params", "lmax"))
-    params['model_basis'] = str(config.get("params", "model_basis", fallback='sph'))
+    params['model_basis'] = str(config.get("params", "model_basis", fallback='pixel'))
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
     ## see if we need to initialize the spherical harmonic subroutines
@@ -561,7 +561,7 @@ def blip(paramsfile='params.ini',resume=False):
             inj['injection'] = str(config.get("inj", "injection"))
             
             ## get the injection basis
-            inj['inj_basis'] = str(config.get("inj", "inj_basis", fallback='sph'))
+            inj['inj_basis'] = str(config.get("inj", "inj_basis", fallback='pixel'))
             
             ## get the injection truevals, passed as a dict
             truevals = eval(str(config.get("inj","truevals")))

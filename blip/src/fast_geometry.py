@@ -236,10 +236,10 @@ class fast_geometry(sph_geometry):
                 if (sm.response_wrapper_func, rargs) == self.wrappers[jj]:
                     if not self.plot_flag:
                         sm.response_mat = self.unique_responses[jj]
-                        if sm.spatial_model_name=='isgwb':
-                            sm.inj_response_mat = sm.response_mat
+                        sm.convolve_inj_response_mat()
                     else:
-                        sm.fdata_response_mat = self.unique_responses[jj]
+                        sm.unconvolved_fdata_response_mat = self.unique_responses[jj]
+                        sm.convolve_inj_response_mat(fdata_flag=self.plot_flag)
                     response_used[jj] = True
         
         ## safety check to make sure all computed responses were assigned appropriately
@@ -541,7 +541,7 @@ class fast_geometry(sph_geometry):
                 wrappers.append(self.sph_asgwb_wrapper)
                 wrapper_args.append(None)
             elif sm.basis == 'pixel':
-                if hasattr(sm,"fixedmap") and sm.fixedmap:
+                if sm.injection or hasattr(sm,"fixedmap") and sm.fixedmap:
                     sm.unpack_response = self.unpack_wrapper_33ft
                     sm.response_shape = (3,3,f0.size, tsegmid.size)
                     sm.response_wrapper_func = self.pix_convolved_asgwb_wrapper

@@ -62,7 +62,7 @@ class LISAdata():
 
         ## the window for splicing
         splice_win = np.sin(np.pi * t_arr/N)
-
+        import pdb; pdb.set_trace()
         ## Loop over splice segments
         for ii in range(self.Injection.nsplice):
             ## move frequency to be the zeroth-axis, then cholesky decomp

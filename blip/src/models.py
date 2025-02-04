@@ -393,8 +393,9 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 ## prior transform
                 self.prior = self.isotropic_prior
                 self.cov = self.compute_cov_isgwb
-#            else:
-                ## create a wrapper b/c isotropic and anisotropic injection responses are different
+            else:
+                ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
 #                self.inj_response_mat = self.response_mat
         
         ## This is the spherical harmonic spatial model. It is the workhorse of the spherical harmonic anisotropic analysis.
@@ -412,29 +413,29 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             self.almax = 2*self.lmax
             response_kwargs['set_almax'] = self.almax
             
-            if self.params['tdi_lev']=='michelson':
-                if parallel_response:
-                    self.response = self.asgwb_mich_response_parallel
-                    self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.asgwb_mich_response  
-            elif self.params['tdi_lev']=='xyz':
-                if parallel_response:
-                    self.response = self.asgwb_xyz_response_parallel
-                    self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.asgwb_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                if parallel_response:
-                    self.response = self.asgwb_aet_response_parallel
-                    self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.asgwb_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            
-            ## compute response matrix
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+#            if self.params['tdi_lev']=='michelson':
+#                if parallel_response:
+#                    self.response = self.asgwb_mich_response_parallel
+#                    self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
+#                else:
+#                    self.response = self.asgwb_mich_response  
+#            elif self.params['tdi_lev']=='xyz':
+#                if parallel_response:
+#                    self.response = self.asgwb_xyz_response_parallel
+#                    self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
+#                else:
+#                    self.response = self.asgwb_xyz_response
+#            elif self.params['tdi_lev']=='aet':
+#                if parallel_response:
+#                    self.response = self.asgwb_aet_response_parallel
+#                    self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
+#                else:
+#                    self.response = self.asgwb_aet_response
+#            else:
+#                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+#            
+#            ## compute response matrix
+#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## plotting stuff
             self.fancyname = "Anisotropic "+self.fancyname
@@ -483,10 +484,13 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
 #                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
+                ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                self.convolve_inj_response_mat = self.sph_convolve_inj_response_mat
+                
                 ## get response integrated over the Ylms
-                self.summ_response_mat = self.compute_summed_response(self.alms_inj)
-                ## create a wrapper b/c isotropic and anisotropic injection responses are different
-                self.inj_response_mat = self.summ_response_mat
+#                self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+#                ## create a wrapper b/c isotropic and anisotropic injection responses are different
+#                self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
         elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso','popmap']:
@@ -509,51 +513,50 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 self.lmax = self.inj['inj_lmax']
                 self.almax = 2*self.lmax
                 response_kwargs['set_almax'] = self.almax
-                if self.params['tdi_lev']=='michelson':
-                    if parallel_response:
-                        self.response = self.asgwb_mich_response_parallel
-                        self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.asgwb_mich_response  
-                elif self.params['tdi_lev']=='xyz':
-                    if parallel_response:
-                        self.response = self.asgwb_xyz_response_parallel
-                        self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.asgwb_xyz_response
-                elif self.params['tdi_lev']=='aet':
-                    if parallel_response:
-                        self.response = self.asgwb_aet_response_parallel
-                        self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.asgwb_aet_response
-                else:
-                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            elif basis == 'pixel':
-                if self.params['tdi_lev']=='michelson':
-                    if parallel_response:
-                        self.response = self.pixel_mich_response_parallel
-                        self.response_non_parallel = self.pixel_mich_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.pixel_mich_response     
-                elif self.params['tdi_lev']=='xyz':
-                    if parallel_response:
-                        self.response = self.pixel_xyz_response_parallel
-                        self.response_non_parallel = self.pixel_xyz_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.pixel_xyz_response
-                elif self.params['tdi_lev']=='aet':
-                    if parallel_response:
-                        self.response = self.pixel_aet_response_parallel
-                        self.response_non_parallel = self.pixel_aet_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.pixel_aet_response
-                else:
-                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+#                if self.params['tdi_lev']=='michelson':
+#                    if parallel_response:
+#                        self.response = self.asgwb_mich_response_parallel
+#                        self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
+#                    else:
+#                        self.response = self.asgwb_mich_response  
+#                elif self.params['tdi_lev']=='xyz':
+#                    if parallel_response:
+#                        self.response = self.asgwb_xyz_response_parallel
+#                        self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
+#                    else:
+#                        self.response = self.asgwb_xyz_response
+#                elif self.params['tdi_lev']=='aet':
+#                    if parallel_response:
+#                        self.response = self.asgwb_aet_response_parallel
+#                        self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
+#                    else:
+#                        self.response = self.asgwb_aet_response
+#                else:
+#                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+#            elif basis == 'pixel':
+#                if self.params['tdi_lev']=='michelson':
+#                    if parallel_response:
+#                        self.response = self.pixel_mich_response_parallel
+#                        self.response_non_parallel = self.pixel_mich_response ## useful for data frequencies, external regen
+#                    else:
+#                        self.response = self.pixel_mich_response     
+#                elif self.params['tdi_lev']=='xyz':
+#                    if parallel_response:
+#                        self.response = self.pixel_xyz_response_parallel
+#                        self.response_non_parallel = self.pixel_xyz_response ## useful for data frequencies, external regen
+#                    else:
+#                        self.response = self.pixel_xyz_response
+#                elif self.params['tdi_lev']=='aet':
+#                    if parallel_response:
+#                        self.response = self.pixel_aet_response_parallel
+#                        self.response_non_parallel = self.pixel_aet_response ## useful for data frequencies, external regen
+#                    else:
+#                        self.response = self.pixel_aet_response
+#                else:
+#                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
             
             ## model-specific quantities
-            ## injection-only models
             if self.spatial_model_name == 'galaxy':
                 ## store the high-level MW truevals for the hierarchical analysis
                 self.truevals[r'$r_{\mathrm{h}}$'] = self.injvals['rh']
@@ -704,7 +707,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             ## compute response matrix
             if basis == 'pixel':
                 response_kwargs['skymap_inj'] = self.skymap #/(np.sum(self.skymap)*hp.nside2pixarea(self.params['nside']))
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## process skymap
             if not injection:
@@ -714,7 +717,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                     self.cov = self.compute_cov_fixed_asgwb
                 elif basis=='pixel':
 #                    self.process_astro_skymap_pixel_model(self.skymap)
-                    self.summ_response_mat = self.response_mat
+#                    self.summ_response_mat = self.response_mat
                     self.prior = self.fixedsky_prior
                     self.cov = self.compute_cov_fixed_asgwb
                 else:
@@ -722,8 +725,12 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             else:
                 if basis == 'sph':
                     self.process_astro_skymap_injection(self.skymap)
+                    ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                    self.convolve_inj_response_mat = self.sph_convolve_inj_response_mat
                 elif basis == 'pixel':
-                    self.inj_response_mat = self.response_mat
+                    ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                    self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
+#                    self.inj_response_mat = self.response_mat
                 else:
                     raise TypeError("Basis was not defined, or was incorrectly defined.")
             
@@ -1843,6 +1850,53 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
     ##   Skymap and Response Calculations   ##
     ##########################################
     
+    def wrapper_convolve_inj_response_mat(self,fdata_flag=False):
+        '''
+        A wrapper function for the ISGWB and pixel basis cases, the skymaps are convolved implicitly when calculating the response.
+        
+        Arguments
+        -----------
+        fdata_flag (bool) : Whether to compute the convolution for injection frequencies (False, default) or data frequencies (True).
+        
+        Returns
+        -----------
+        (none)
+        
+        '''
+        
+        # create a wrapper b/c isotropic and anisotropic injection responses are handled differently w.r.t. skymap convolution
+        if not fdata_flag:
+            self.inj_response_mat = self.response_mat
+            self.summ_response_mat = self.response_mat
+        else:
+            self.fdata_response_mat = self.unconvolved_fdata_response_mat
+        
+        return
+    
+    def sph_convolve_inj_response_mat(self,fdata_flag=False):
+        '''
+        Function to convolve the sph response matrix with an injected spherical harmonic skymap.
+        
+        Arguments
+        -----------
+        fdata_flag (bool) : Whether to compute the convolution for injection frequencies (False, default) or data frequencies (True).
+        
+        Returns
+        -----------
+        (none)
+        
+        '''
+        
+        if not fdata_flag:
+            ## get response integrated over the Ylms
+            self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+            ## create a wrapper b/c isotropic and anisotropic injection responses are different
+            self.inj_response_mat = self.summ_response_mat
+        else:
+            self.fdata_response_mat = jnp.einsum('ijklm,m', self.unconvolved_fdata_response_mat, self.alms_inj)
+        
+        return
+    
     def compute_skymap_alms(self,blm_params):
         '''
         Function to compute the anisotropic skymap a_lms from the blm parameters.
@@ -1920,9 +1974,9 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
         self.sph_skymap = hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
         ## get response integrated over the Ylms
-        self.summ_response_mat = self.compute_summed_response(self.alms_inj)
-        ## create a wrapper b/c isotropic and anisotropic injection responses are different
-        self.inj_response_mat = self.summ_response_mat
+#        self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+#        ## create a wrapper b/c isotropic and anisotropic injection responses are different
+#        self.inj_response_mat = self.summ_response_mat
         
         return
     
@@ -2598,7 +2652,7 @@ class Injection(fast_geometry):#geometry,sph_geometry):
             
             ## tell healpy to shush
             with log_manager(logging.ERROR):
-                hp.mollview(Omegamap_pix, coord=coord, title=r'Injected pixel map $\Omega (f = 1 mHz)$', unit=r"$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.mollview(Omegamap_pix, coord=coord, title=r'Injected pixel map $\Omega (f = 1 mHz)$', unit=r"$\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
             if save_figures:
@@ -2615,7 +2669,7 @@ class Injection(fast_geometry):#geometry,sph_geometry):
             Omegamap_inj = Omega_1mHz * cm.sph_skymap
             ## tell healpy to shush
             with log_manager(logging.ERROR):
-                hp.mollview(Omegamap_inj, coord=coord, title=r'Injected angular distribution map $\Omega (f = 1 mHz)$', unit=r"$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.mollview(Omegamap_inj, coord=coord, title=r'Injected angular distribution map $\Omega (f = 1 mHz)$', unit=r"$\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
             if save_figures:
