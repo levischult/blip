@@ -387,7 +387,7 @@ class fast_geometry(sph_geometry):
             pix_idx  = np.arange(npix)
         else:
             ## otherwise, make a map of everwhere on the sky where there is power across all submodels
-            combined_map = np.sum([sm.skymap for sm in self.submodels if hasattr(sm,'skymap')]) ##THIS IS PSEUDOCODE, FILL IN WITH ACTUAL VARS
+            combined_map = np.sum(np.array([sm.skymap for sm in self.submodels if hasattr(sm,'skymap')]),axis=0)
             ## Array of pixel indices where the combined map is nonzero
             pix_idx = np.flatnonzero(combined_map)
 
@@ -546,7 +546,7 @@ class fast_geometry(sph_geometry):
                     sm.response_shape = (3,3,f0.size, tsegmid.size)
                     sm.response_wrapper_func = self.pix_convolved_asgwb_wrapper
                     wrappers.append(self.pix_convolved_asgwb_wrapper)
-                    sm_map = sm.skymap
+                    sm_map = sm.skymap[np.flatnonzero(sm.skymap)]
                     sm.response_args = sm_map
                     wrapper_args.append(sm_map)
                 else:

@@ -501,7 +501,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             
             self.has_map = True
             
-            if (Injection and inj['inj_basis']=='pixel') or (not Injection and params['model_basis']=='pixel'):
+            if (injection and inj['inj_basis']=='pixel') or (not injection and params['model_basis']=='pixel'):
                 basis = 'pixel'
             else:
                 basis = 'sph'
