@@ -2588,7 +2588,7 @@ class Injection():#geometry,sph_geometry):
             
             ## tell healpy to shush
             with log_manager(logging.ERROR):
-                hp.mollview(Omegamap_pix, coord=coord, title=r'Injected pixel map $\Omega (f = 1 mHz)$', unit=r"$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.mollview(Omegamap_pix, coord=coord, title=r'Injected pixel map $\Omega (f = 1 mHz)$', unit=r"$\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
             if save_figures:
@@ -2605,7 +2605,7 @@ class Injection():#geometry,sph_geometry):
             Omegamap_inj = Omega_1mHz * cm.sph_skymap
             ## tell healpy to shush
             with log_manager(logging.ERROR):
-                hp.mollview(Omegamap_inj, coord=coord, title=r'Injected angular distribution map $\Omega (f = 1 mHz)$', unit=r"$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.mollview(Omegamap_inj, coord=coord, title=r'Injected angular distribution map $\Omega (f = 1 mHz)$', unit=r"$\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
             if save_figures:
