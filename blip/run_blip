@@ -285,7 +285,7 @@ class LISA(LISAdata, Model):
         # noise budget plot
         ffilt = (self.fdata>=self.params['fmin'])*(self.fdata<=self.params['fmax'])
         plt.loglog(psdfreqs, data_PSD1,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.fdata[ffilt], C_noise[2, 2, :][ffilt], label='Instrumental Noise ', lw=0.75,color='dimgrey')
+        plt.loglog(self.fdata[ffilt], C_noise[0, 0, :][ffilt], label='Instrumental Noise ', lw=0.75,color='dimgrey')
         
         ymins = []
         ymeds = []
