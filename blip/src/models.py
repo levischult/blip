@@ -404,7 +404,9 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             
             if injection:
                 if self.inj['inj_basis'] == 'pixel':
-                    raise ValueError("Only astrophysical injections are supported in the pixel basis. Spherical harmonic injections must use the spherical harmonic basis.")
+                    print("Warning: the injection basis has been specified as the pixel basis (inj_basis=pixel), but this is a spherical harmonic injection. \
+                          Spherical harmonic injections must use the spherical harmonic basis (inj_basis=sph).\
+                          Proceeding with the spherical harmonic basis for this component; other components will continue to use the pixel basis.")
                 self.lmax = self.inj['inj_lmax']
             else:
                 self.lmax = self.params['lmax']
@@ -2349,7 +2351,7 @@ class Injection(fast_geometry):#geometry,sph_geometry):
         ## Having initialized all the components, now compute the LISA response functions
         t1 = time.time()
         fast_geometry.__init__(self)
-        self.generic_michelson_response(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names])
+        self.calculate_response_functions(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names],self.params['tdi_lev'])
         t2 = time.time()
         print("Time elapsed for all components via joint computation was {} s.".format(t2-t1))
         
