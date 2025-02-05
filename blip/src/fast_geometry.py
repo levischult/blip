@@ -669,13 +669,13 @@ class fast_geometry(sph_geometry):
             print("Response functions for Michelson channels complete. Assigning responses...")
         elif tdi_lev == 'xyz':
             print("Assembling XYZ response functions from Michelson responses...")
-            ## DO STUFF
+            self.get_xyz_from_michelson()
             print("Response functions for XYZ channels complete. Assigning responses...")
         elif tdi_lev == 'aet':
             print("Assembling XYZ response from Michelson response...")
-            ## DO STUFF
+            self.get_xyz_from_michelson()
             print("Assembling AET response from XYZ response...")
-            ## DO STUFF
+            self.get_aet_from_xyz()
             print("Response functions for AET channels complete. Assigning responses...")
         
         t2 = time.time()
