@@ -616,6 +616,8 @@ class fast_geometry(sph_geometry):
                         sm_map = sm.skymap
                     else:
                         sm_map = sm.skymap[np.flatnonzero(sm.skymap)]
+                    ## normalize skymap such that integral of P(n)d2n = 1
+                    sm_map = sm_map/(np.sum(sm_map)*self.dOmega)
                     sm.response_args = sm_map
                     wrapper_args.append(sm_map)
                 else:
