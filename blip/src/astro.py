@@ -628,6 +628,7 @@ def generate_galactic_foreground(rh,zh,nside):
 
 
 def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
+    
     '''
     Generates the stochastic DWD signal from a a generic toy model spherical dwarf galaxy (SDG). Default values are for the LMC.
     
@@ -651,7 +652,7 @@ def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     '''
     ## ===== ipynb compute_density function ========================================
     ## all below is only for galaxy model creation
-        ## set grid density
+    ## set grid density
     grid_fill = 200
 
     # sdg radius: (default is the LMC)
@@ -675,38 +676,28 @@ def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     zs = np.linspace(z_sdg-sdg_r,z_sdg+sdg_r,grid_fill)
     x, y, z = np.meshgrid(xs,ys,zs)
     
-    DWD_density = N / (0.524*200**3)
-    # 0.524 is the filling factor of a sphere in a cube
-    # this gives us the number density for points only within the sphere of the sdg, instead of the entire cube
-
-    ## creating a sphere_filter 3D array, with 1s in a sphere and 0s otherwise
+    
+    ## creating a uniform spherical density, and zero density beyond that
     # rs = distance from any point to the center of the sdg
     rs = np.sqrt((x-x_sdg)**2+(y-y_sdg)**2+(z-z_sdg)**2)
     
-    # set any points within the sdg radius to 1, any points outside to 0
-    sphere_filter = np.zeros((grid_fill,grid_fill,grid_fill))
-    for i in range(grid_fill):
-        for j in range(grid_fill):
-            for k in range(grid_fill):
-                sphere_filter[i,j,k] = 1 if (rs[i,j,k]<sdg_r) else 0
-    ## ** this is probably a computationally expensive way to do this, but it works
+    DWD_density = (rs<=sdg_r) * N / (0.524*grid_fill**3) 
+    # 0.524 is the filling factor of a sphere in a cube
+    # this gives us the number density for points only within the sphere of the sdg, instead of the entire cube
 
-    ## =============================================================================
-    
-    ## ===== ipynb next block ======================================================
     ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
-    gc = cc.Galactocentric(x=x,y=y,z=z)
+    gc = cc.SkyCoord(x=x,y=y,z=z, frame='galactocentric')
+    #cc.Galactocentric(x=x,y=y,z=z)
     SSBc = gc.transform_to(cc.Galactic)
-    ## =============================================================================
-   
+
     ## Calculate GW power
     ## density will be total power divided by the points that we're simulating
     ## assuming all grid points will contribute an equal amount of power
-    DWD_powers = sphere_filter*DWD_density*(np.array(SSBc.distance))**-2
+    DWD_powers = DWD_density*(np.array(SSBc.distance))**-2
     ## Filter nearby grid points (cut out 2kpc sphere)
     ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
     ## the density distribution and filtering out resolveable SNR>80 binaries
-    DWD_unresolved_powers = sphere_filter*DWD_powers*(np.array(SSBc.distance) > 2)
+    DWD_unresolved_powers = DWD_powers*(np.array(SSBc.distance) > 2)
     ## will need to generate DWD_unresolved_powers for sdg
     
 
