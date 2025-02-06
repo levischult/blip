@@ -7,45 +7,18 @@ from multiprocessing import Pool
 import healpy as hp
 from scipy.special import sph_harm
 from blip.src.sph_geometry import sph_geometry
-import time
 from tqdm import tqdm
-
-
-#class response_model():
-#    '''
-#    Wrapper object for parallelized response function calculations.
-#    '''
-#    def __init__(self,sm,response_shape):
-#        '''
-#        sm (submodel object) : the submodel to wrap
-#        '''
-#        ## instantiate the response array
-#        self.response_shape = response_shape
-#        #specify additional wrappers for unpacking
-#        ## this is mapped to the response_wrapper_func attached to the submodel
-#        if sm.spatial_model_name == 'isgwb':
-#            self.unpack_response = fast_geometry.unpack_wrapper_33ft
-#            self.response_wrapper_func = fast_geometry.isgwb_wrapper
-#        elif sm.basis == 'sph':
-#            self.unpack_response = fast_geometry.unpack_wrapper_33ftn
-#            self.response_wrapper_func = fast_geometry.sph_asgwb_wrapper
-#        elif sm.basis == 'pixel':
-#            if hasattr(sm,"fixedmap") and sm.fixedmap:
-#                self.unpack_response = fast_geometry.unpack_wrapper_33ft
-#                self.response_wrapper_func = fast_geometry.pix_convolved_asgwb_wrapper
-#            else:
-#                self.unpack_response = fast_geometry.unpack_wrapper_33ftn
-#                self.response_wrapper_func = fast_geometry.pix_unconvolved_asgwb_wrapper
-#        else:
-#            raise ValueError("Specification of the response wrapper is unrecognized. Check the implementation of response_wrapper_func for submodel "+sm.spatial_model_name+" in models.py.")
-        
 
 
 
 class fast_geometry(sph_geometry):
 
     '''
-    Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.
+    
+    Module containing fast, unified geometry methods. 
+    The methods here include calculation of antenna patterns for the Michelson, XYZ, and AET TDI channels.
+    The calculations are multilayered and abstracted so as to avoid (almost) all repeated calculations when considering multiple submodels/injection components.
+    
     '''
 
     def __init__(self):
@@ -58,7 +31,6 @@ class fast_geometry(sph_geometry):
 
 
     def lisa_orbits(self, tsegmid):
-
 
         '''
         Define LISA orbital positions at the midpoint of each time integration segment using analytic MLDC orbits.
@@ -74,6 +46,7 @@ class fast_geometry(sph_geometry):
         rs1, rs2, rs3  :  array
             Arrays of satellite positions for each segment midpoint in timearray. e.g. rs1[1] is [x1,y1,z1] at t=midpoint[1]=timearray[1]+(segment length)/2.
         '''
+        
         ## Branch orbiting and stationary cases; compute satellite position in stationary case based off of first time entry in data.
         if self.params['lisa_config'] == 'stationary':
             # Calculate start time from tsegmid
@@ -125,9 +98,11 @@ class fast_geometry(sph_geometry):
     ###################################################################################
     
     def isgwb_wrapper(self,F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii):
+        
         '''
         Wrapper function to take sky integral and return response array slice
         '''
+        
         R1_ii  = self.dOmega/(4*np.pi)*np.sum(F1_ii, axis=1 )
         R2_ii  = self.dOmega/(4*np.pi)*np.sum(F2_ii, axis=1 ) 
         R3_ii  = self.dOmega/(4*np.pi)*np.sum(F3_ii, axis=1 ) 
@@ -138,9 +113,11 @@ class fast_geometry(sph_geometry):
         return np.array([ [R1_ii, R12_ii, R13_ii] , [np.conj(R12_ii), R2_ii, R23_ii], [np.conj(R13_ii), np.conj(R23_ii), R3_ii] ])
     
     def sph_asgwb_wrapper(self,F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii):
+        
         '''
         Wrapper function to convolve with Ylms and return response array slice
         '''
+        
         R1_ii  = self.dOmega*np.einsum('ij, jk', F1_ii, self.Ylms)
         R2_ii  = self.dOmega*np.einsum('ij, jk', F2_ii, self.Ylms)
         R3_ii = self.dOmega*np.einsum('ij, jk', F3_ii, self.Ylms)
@@ -155,9 +132,12 @@ class fast_geometry(sph_geometry):
 
     
     def pix_convolved_asgwb_wrapper(self,F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii,skymap):
+        
         '''
         Wrapper function to convolve with pixel-basis skymap and return response array slice
+        
         '''
+        
         ## Detector response summed over polarization and integrated over sky direction
         ## The travel time phases for the which are relevent for the cross-channel are
         ## accounted for in the Fplus and Fcross expressions above.
@@ -173,7 +153,9 @@ class fast_geometry(sph_geometry):
     def pix_unconvolved_asgwb_wrapper(self,F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii):
         '''
         Wrapper function which just returns its inputs, as the unconvolved case doesn't integrate over the sky
+        
         '''
+        
         return np.array([ [F1_ii, F12_ii, F13_ii] , [np.conj(F12_ii), F2_ii, F23_ii], [np.conj(F13_ii), np.conj(F23_ii), F3_ii] ])
     
     
@@ -181,29 +163,8 @@ class fast_geometry(sph_geometry):
     ## For unpacking per-frequency responses into the correct array shape ##
     ########################################################################
     
-#    def unpack_wrapper_33ft(self,sm,ii,Rf):
-#        '''
-#        Wrapper function for unpacking responses of shape 3 x 3 x frequency x time
-#        '''
-#        if not self.plot_flag:
-#            sm.response_mat[:,:,ii,:] = Rf
-#        else:
-#            sm.fdata_response_mat[:,:,ii,:] = Rf
-#        return
-#    
-#    def unpack_wrapper_33ftn(self,sm,ii,Rf):
-#        '''
-#        Wrapper function for unpacking responses of shape 3 x 3 x frequency x time x spatial
-#        
-#        Spatial can mean either spherical harmonics or pixels.
-#        '''
-#        if not self.plot_flag:
-#            sm.response_mat[:,:,ii,:,:] = Rf
-#        else:
-#            sm.fdata_response_mat[:,:,ii,:,:] = Rf
-#        return
-    
     def unpack_wrapper(self,ii,Rf):
+        
         '''
         Wrapper function to generically assigen the calculated per-frequency response function slices to their appropriate unique response array.
         
@@ -211,23 +172,21 @@ class fast_geometry(sph_geometry):
         -------------------------
         ii (int)    : frequency index
         Rf (array)  : Response function slice(s) for each unique response function at frequency index ii
+        
         '''
-#        for jj in range(len(self.unique_responses)):
-#            if Rf[jj].ndim == 3:
-#                self.unique_responses[jj][:,:,ii,:] = Rf[jj]
-#            elif Rf[jj].ndim == 4:
-#                self.unique_responses[jj][:,:,ii,:,:] = Rf[jj]
-#            else:
-#                raise ValueError("Invalid response dimension ({}). Response matrices should be of dimension 3 x 3 x frequency x time (x spatial, optional).".format(Rf[jj].ndim))
-        ## more generic
+        
+        ## generically assign the frequency slice to each unique response
+        ## the '...' indexing allows this to handle both 3 x 3 x f x t and 3 x 3 x f x t x n response shapes
         for jj in range(len(self.unique_responses)):
             self.unique_responses[jj][:,:,ii,...] = Rf[jj]
         
         return
     
     def assign_responses_to_submodels(self):
+        
         '''
         Method to attach the unique response functions to their (potentially non-unique) respective submodels.
+        
         '''
         
         response_used = np.zeros(len(self.unique_responses),dtype='bool')
@@ -263,12 +222,15 @@ class fast_geometry(sph_geometry):
         Wrapper function to help with parallelization of the response function calculations.
         
         Arguments
+        --------------
         
         ii (int)   :  Frequency index
         
         Returns
+        --------------
         
-        response_ii : Response matrix in that frequency bin
+        response_ii (float array) : Response matrix in that frequency bin
+        
         '''
         
         # Calculate GW transfer function for the michelson channels
@@ -314,18 +276,10 @@ class fast_geometry(sph_geometry):
         F13_ii = (1/2)*(np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3)
         F23_ii = (1/2)*(np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3)
 
-#        sm_response_slices = []
-#        for sm in self.submodels:
-#            sm_response_slices.append(sm.response_wrapper_func(F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii,**sm.response_kwargs))
         
         response_slices = [wrapper(F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii) if arg is None else wrapper(F1_ii, F2_ii, F3_ii, F12_ii, F13_ii, F23_ii, arg) for wrapper, arg in self.wrappers]
         
         return response_slices
-        
-        ## return the frequency response components sans alteration
-#        return R1_ii, R2_ii, R3_ii, R12_ii, R13_ii, R23_ii
-        
-#        return np.array([ [R1_ii, R12_ii, R13_ii] , [np.conj(R12_ii), R2_ii, R23_ii], [np.conj(R13_ii), np.conj(R23_ii), R3_ii] ])
 
 
     def get_geometric_Fplus_Fcross(self,arm_hat_ij,mhat_prod,nhat_prod):
@@ -341,6 +295,7 @@ class fast_geometry(sph_geometry):
         Returns
         --------------------------
         Fplus_ij, Fcross_ij (float arrays) : Geometric components of the plus and cross antenna pattern functions for LISA arms i and j
+        
         '''
         
         interior_prod = np.einsum("ik,jk -> ijk",arm_hat_ij, arm_hat_ij)
@@ -364,6 +319,7 @@ class fast_geometry(sph_geometry):
                 raise ValueError("Michelson response has an unsupported number of dimensions ({}). Something has gone wrong...".format(R_mich.ndim))
         
         return
+    
     
     def construct_aet_response_mat(self,xyz_response_mat):
         
@@ -405,10 +361,12 @@ class fast_geometry(sph_geometry):
         return aet_response_mat
     
     def get_aet_from_xyz(self):
+        
         '''
         Compute the LISA response functions for the AET Time-Delay Interferometry channels from the XYZ channels.
         
         '''
+        
         for i, R_xyz in enumerate(self.unique_responses):
             self.unique_responses[i] = self.construct_aet_response_mat(R_xyz)
         
@@ -424,23 +382,23 @@ class fast_geometry(sph_geometry):
         Parameters
         -----------
 
-        f0   : float
-            A numpy array of scaled frequencies (see above for def)
+        f0 (float array)   : A numpy array of scaled frequencies (f0 = c*f/(2pi*arm_length))
 
-        tsegmid  :  float
-            A numpy array of segment midpoints
+        tsegmid (float array) :  Time axis, as given by the midpoint of every time segment
     
-        submodels : list of instantiated submodel objs
+        submodels (models.submodel object) : list of instantiated submodel objects
         
-        ? : whatever else
+        tdi_lev (str) : The desired level of time-delay interferometry (TDI). Can be 'michelson', 'xyz', or 'aet'.
+        
+        plot_flag (bool) : If True, the responses will be computed at the data frequencies for plotting purposes. Default False.
 
         Returns
         -----------
         
-        response_mat(s) (numpy array/s) : the appropriate response function for each submodel, attached to that submodel
+        response_mat(s) (numpy array/s) : the appropriate response function for each submodel, attached to that submodel (the function does not return the response arrays directly)
         
         '''
-        t1 = time.time()
+        
         self.submodels = submodels
         self.plot_flag = plot_flag
         ## basic preliminaries
@@ -469,47 +427,6 @@ class fast_geometry(sph_geometry):
         # Take cosine.
         ctheta = np.cos(theta)
 
-
-        ################################################################################
-        ## ode block to set up which submodels we have and any specifics they require ##
-        ################################################################################
-#        for sm in self.submodels:
-#            ## instantiate the response array and specify additional wrappers for unpacking
-#            ## this is mapped to the response_wrapper_func attached to the submodel
-#            if sm.spatial_model_name == 'isgwb':
-#                sm.unpack_response = self.unpack_wrapper_33ft
-#                sm.response_shape = (3,3,f0.size,tsegmid.size)
-#                sm.response_wrapper_func = self.isgwb_wrapper
-#            elif sm.basis == 'sph':
-#                sm.unpack_response = self.unpack_wrapper_33ftn
-#                ## array size of almax
-#                alm_size = (sm.almax + 1)**2
-#                ## initalize array for Ylms
-#                self.Ylms = np.zeros((npix, alm_size ), dtype='complex')
-#                ## Get the spherical harmonics
-#                for ii in range(alm_size):
-#                    lval, mval = self.idxtoalm(sm.almax, ii)
-#                    self.Ylms[:, ii] = sph_harm(mval, lval, phi, theta)
-#                sm.response_shape = (3,3,f0.size, tsegmid.size,alm_size)
-#                sm.response_wrapper_func = self.sph_asgwb_wrapper
-#            elif sm.basis == 'pixel':
-#                if hasattr(sm,"fixedmap") and sm.fixedmap:
-#                    sm.unpack_response = self.unpack_wrapper_33ft
-#                    sm.response_shape = (3,3,f0.size, tsegmid.size)
-#                    sm.response_wrapper_func = self.pix_convolved_asgwb_wrapper
-#                else:
-#                    sm.unpack_response = self.unpack_wrapper_33ftn
-#                    sm.response_shape = (3,3,f0.size, tsegmid.size,pix_idx.size)
-#                    sm.response_wrapper_func = self.pix_unconvolved_asgwb_wrapper
-#            else:
-#                raise ValueError("Specification of the response wrapper is unrecognized. Check the implementation of response_wrapper_func for submodel "+sm.spatial_model_name+" in models.py.")
-#        
-#        t2 = time.time()
-#        print("Init time is {}".format(t2-t1))
-        ##############################################################
-        ## this will be the main bit which remains largely the same ##
-        ##############################################################
-        t1 = time.time()
         # Create 2D array of (x,y,z) unit vectors for every sky direction.
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
 
@@ -531,8 +448,8 @@ class fast_geometry(sph_geometry):
         ## NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations
         ##             as opposed to the explicit forms we've previously used. '''
 
-
-        ## CHECK THESE EXPLANATIONS LATER AGAINST MY OLD NOTEBOOK
+        ## we've done some fancy factoring of these calculations to make them as efficient as possible
+        
         ######################################################################
         ## mhat and nhat are phi hat and theta hat in cartesian coordinates ##
         ######################################################################
@@ -547,39 +464,16 @@ class fast_geometry(sph_geometry):
         
         # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
         ## we have jitted this function
-        
-        
-        ## commenting out some parallelization. Can reintroduce later, but these calculations are not egregious, so I don't think we'll gain much over 3 calculations.
-#        self.arm_iterator = [uhat_21,vhat_31,what_32]
-#        idx = range(len(arm_iterator))
-#        with Pool(self.inj['response_nthread']) as pool:
-#            result = pool.map(self.get_geometric_Fplus_Fcross,idx)
-#        
-#            for ii, R_f in zip(idx,result):
-#                response_mat[:,:,ii,:] = R_f
-#        
 
         self.Fplus_u, self.Fcross_u = self.get_geometric_Fplus_Fcross(uhat_21,mhat_op,nhat_op)
         self.Fplus_v, self.Fcross_v = self.get_geometric_Fplus_Fcross(vhat_31,mhat_op,nhat_op)
         self.Fplus_w, self.Fcross_w = self.get_geometric_Fplus_Fcross(what_32,mhat_op,nhat_op)
 
-        ###############################################################################################################################################################
-        ## left off here; this is where we'll call the frequency wrapper and take the appropriate sums/averages before constructing the relevant full response mats. ## 
-        ###############################################################################################################################################################
 
-        
-#        for sm in self.submodels:
-#            ## instantiate the response arrays
-#            if plot_flag:
-#                sm.fdata_response_mat = np.zeros(sm.response_shape, dtype='complex') 
-#            else:
-#                sm.response_mat = np.zeros(sm.response_shape, dtype='complex') ## we can define what shape the final response should be in the submodel initialzation
-
-        # Calculate the detector response for each frequency
+        # Set frequency array indices
         idx = range(0,f0.size)
         
-        
-        ## prototype here then move up
+        ## step through submodels and determine the appropriate responses, wrappers, etc.
         wrappers = []
         wrapper_args = []
         response_shapes = []
@@ -587,13 +481,11 @@ class fast_geometry(sph_geometry):
             ## instantiate the response array and specify additional wrappers for unpacking
             ## this is mapped to the response_wrapper_func attached to the submodel
             if sm.spatial_model_name == 'isgwb':
-#                sm.unpack_response = self.unpack_wrapper_33ft
                 sm.response_shape = (3,3,f0.size,tsegmid.size)
                 sm.response_wrapper_func = self.isgwb_wrapper
                 wrappers.append(self.isgwb_wrapper)
                 wrapper_args.append(None)
             elif sm.basis == 'sph':
-#                sm.unpack_response = self.unpack_wrapper_33ftn
                 ## array size of almax
                 alm_size = (sm.almax + 1)**2
                 ## initalize array for Ylms
@@ -608,7 +500,7 @@ class fast_geometry(sph_geometry):
                 wrapper_args.append(None)
             elif sm.basis == 'pixel':
                 if sm.injection or hasattr(sm,"fixedmap") and sm.fixedmap:
-#                    sm.unpack_response = self.unpack_wrapper_33ft
+                    ## templated anisotropic searches with pre-convolved maps
                     sm.response_shape = (3,3,f0.size, tsegmid.size)
                     sm.response_wrapper_func = self.pix_convolved_asgwb_wrapper
                     wrappers.append(self.pix_convolved_asgwb_wrapper)
@@ -621,7 +513,7 @@ class fast_geometry(sph_geometry):
                     sm.response_args = sm_map
                     wrapper_args.append(sm_map)
                 else:
-#                    sm.unpack_response = self.unpack_wrapper_33ftn
+                    ## unconvolved full-sky pixel response
                     sm.response_shape = (3,3,f0.size, tsegmid.size,pix_idx.size)
                     sm.response_wrapper_func = self.pix_unconvolved_asgwb_wrapper
                     wrappers.append(self.pix_unconvolved_asgwb_wrapper)
@@ -631,7 +523,8 @@ class fast_geometry(sph_geometry):
                 raise ValueError("Specification of the response wrapper is unrecognized. Check the implementation of response_wrapper_func for submodel "+sm.spatial_model_name+" in models.py.")
             
             response_shapes.append(sm.response_shape)
-             
+         
+        ## avoid duplicate calculations by reducing the problem to the set of unique responses that need to be computed
         unique_wrappers = []
         unique_shapes = []
         for wrapper, arg, shape in zip(wrappers,wrapper_args,response_shapes):
@@ -642,28 +535,24 @@ class fast_geometry(sph_geometry):
         self.unique_responses = [np.zeros(shape,dtype='complex') for shape in unique_shapes]
         
         
-        if self.inj['parallel_inj']:# and self.inj['response_nthread']>1:
+        
+        ## Perform the joint computation of the detector response for each frequency
+        ## this will, for each frequency, compute the full 3 x 3 x time x frquency_ii x sky direction Michelson responses
+        ## and then perform the appropriate sums/convolutions depending on the desired spatial model(s)
+        
+        ## the parallel implementation still has a lot of overhead due to needing to pickle functions and passing them to the threads
+        ## unclear if the effects of this will be noticible at scale
+        if self.inj['parallel_inj'] and self.inj['response_nthread']>1:
             with Pool(self.inj['response_nthread']) as pool:
                 result = pool.map(self.frequency_response_wrapper,idx)
                 for ii, R_f in zip(idx,result):
                     self.unpack_wrapper(ii,R_f)
-#                    for jj, sm in enumerate(self.submodels):
-#                        ## index appropriately for each submodel
-#                        sm.unpack_response(sm,ii,R_f[jj])
-#                    ## handle some aliasing
-#                    if sm.spatial_model_name=='isgwb':
-#                        sm.inj_response_mat = sm.response_mat       
+        ## the non-parallel version has a nice progress bar :)
         else:
             for ii in tqdm(idx):
                 R_f = self.frequency_response_wrapper(ii)
-                self.unpack_wrapper(ii,R_f)
-#                for jj, sm in enumerate(self.submodels):
-#                    sm.unpack_response(sm,ii,R_ii[jj])
-        
-        t2 = time.time()
-        print("f-axis computation time is {}".format(t2-t1))
-        
-        t1 = time.time()
+                self.unpack_wrapper(ii,R_f)        
+
         ## handle TDI levels 
         if tdi_lev == 'michelson':
             print("Response functions for Michelson channels complete. Assigning responses...")
@@ -676,22 +565,11 @@ class fast_geometry(sph_geometry):
             self.get_xyz_from_michelson()
             print("Assembling AET response from XYZ response...")
             self.get_aet_from_xyz()
-            print("Response functions for AET channels complete. Assigning responses...")
+            print("Response functions for AET channels complete. Assigning responses...")        
         
-        t2 = time.time()
-        print("TDI construction time is {}".format(t2-t1))
-        t1 = time.time()
-        
-        
+        ## disseminate the unique responses to their respective (not necessarily unique) submodels
         self.assign_responses_to_submodels()
-        t2 = time.time()
-        print("response assignment time is {}".format(t2-t1))
-#            for sm in self.submodels:
-#                ## handle some aliasing
-#                if sm.spatial_model_name=='isgwb' and not plot_flag:
-#                    sm.inj_response_mat = sm.response_mat
                 
-        
         return
 
 

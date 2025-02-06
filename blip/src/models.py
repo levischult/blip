@@ -5,10 +5,10 @@ import healpy as hp
 import logging
 import os, shutil, pickle
 import time
-from multiprocessing import Pool
+#from multiprocessing import Pool
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
-from blip.src.sph_geometry import sph_geometry
+#from blip.src.sph_geometry import sph_geometry
 from blip.src.fast_geometry import fast_geometry
 from blip.src.clebschGordan import clebschGordan
 from blip.src.astro import Population
@@ -357,31 +357,6 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         
         ## This is the isotropic spatial model, and has no additional parameters.
         if self.spatial_model_name == 'isgwb':
-#            if self.params['tdi_lev'] == 'michelson':
-#                if parallel_response:
-#                    self.response = self.isgwb_mich_response_parallel
-#                    self.response_non_parallel = self.isgwb_mich_response ## useful for data frequencies, external regen
-#                else:
-#                    self.response = self.isgwb_mich_response
-#            elif self.params['tdi_lev'] == 'xyz':
-#                if parallel_response:
-#                    self.response = self.isgwb_xyz_response_parallel
-#                    self.response_non_parallel = self.isgwb_xyz_response ## useful for data frequencies, external regen
-#                else:
-#                    self.response = self.isgwb_xyz_response
-#                
-#            elif self.params['tdi_lev'] == 'aet':
-#                if parallel_response:
-#                    self.response = self.isgwb_aet_response_parallel
-#                    self.response_non_parallel = self.isgwb_aet_response ## useful for data frequencies, external regen
-#                else:
-#                    self.response = self.isgwb_aet_response
-#            else:
-#                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-#            
-#            ## compute response matrix
-#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
-            
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
             self.subscript = r"_{\mathrm{I}}"
@@ -414,30 +389,6 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             ## almax is twice the blmax
             self.almax = 2*self.lmax
             response_kwargs['set_almax'] = self.almax
-            
-#            if self.params['tdi_lev']=='michelson':
-#                if parallel_response:
-#                    self.response = self.asgwb_mich_response_parallel
-#                    self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
-#                else:
-#                    self.response = self.asgwb_mich_response  
-#            elif self.params['tdi_lev']=='xyz':
-#                if parallel_response:
-#                    self.response = self.asgwb_xyz_response_parallel
-#                    self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
-#                else:
-#                    self.response = self.asgwb_xyz_response
-#            elif self.params['tdi_lev']=='aet':
-#                if parallel_response:
-#                    self.response = self.asgwb_aet_response_parallel
-#                    self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
-#                else:
-#                    self.response = self.asgwb_aet_response
-#            else:
-#                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-#            
-#            ## compute response matrix
-#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## plotting stuff
             self.fancyname = "Anisotropic "+self.fancyname
@@ -483,16 +434,10 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 
                 ## get alms
                 self.alms_inj = np.array(self.compute_skymap_alms(self.injvals['blms']).tolist())
-#                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
                 ## Tell the submodel how to handle the injection response matrix when it's computed later on
                 self.convolve_inj_response_mat = self.sph_convolve_inj_response_mat
-                
-                ## get response integrated over the Ylms
-#                self.summ_response_mat = self.compute_summed_response(self.alms_inj)
-#                ## create a wrapper b/c isotropic and anisotropic injection responses are different
-#                self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
         elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso','popmap']:
@@ -515,49 +460,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 self.lmax = self.inj['inj_lmax']
                 self.almax = 2*self.lmax
                 response_kwargs['set_almax'] = self.almax
-#                if self.params['tdi_lev']=='michelson':
-#                    if parallel_response:
-#                        self.response = self.asgwb_mich_response_parallel
-#                        self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
-#                    else:
-#                        self.response = self.asgwb_mich_response  
-#                elif self.params['tdi_lev']=='xyz':
-#                    if parallel_response:
-#                        self.response = self.asgwb_xyz_response_parallel
-#                        self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
-#                    else:
-#                        self.response = self.asgwb_xyz_response
-#                elif self.params['tdi_lev']=='aet':
-#                    if parallel_response:
-#                        self.response = self.asgwb_aet_response_parallel
-#                        self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
-#                    else:
-#                        self.response = self.asgwb_aet_response
-#                else:
-#                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-#            elif basis == 'pixel':
-#                if self.params['tdi_lev']=='michelson':
-#                    if parallel_response:
-#                        self.response = self.pixel_mich_response_parallel
-#                        self.response_non_parallel = self.pixel_mich_response ## useful for data frequencies, external regen
-#                    else:
-#                        self.response = self.pixel_mich_response     
-#                elif self.params['tdi_lev']=='xyz':
-#                    if parallel_response:
-#                        self.response = self.pixel_xyz_response_parallel
-#                        self.response_non_parallel = self.pixel_xyz_response ## useful for data frequencies, external regen
-#                    else:
-#                        self.response = self.pixel_xyz_response
-#                elif self.params['tdi_lev']=='aet':
-#                    if parallel_response:
-#                        self.response = self.pixel_aet_response_parallel
-#                        self.response_non_parallel = self.pixel_aet_response ## useful for data frequencies, external regen
-#                    else:
-#                        self.response = self.pixel_aet_response
-#                else:
-#                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            
-            
+
             ## model-specific quantities
             if self.spatial_model_name == 'galaxy':
                 ## store the high-level MW truevals for the hierarchical analysis
@@ -706,20 +609,18 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             
-            ## compute response matrix
+            ## set skymap
             if basis == 'pixel':
                 response_kwargs['skymap_inj'] = self.skymap #/(np.sum(self.skymap)*hp.nside2pixarea(self.params['nside']))
-#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+
             
-            ## process skymap
+            ## process skymap, indicate how to compute the response functions later
             if not injection:
                 if basis == 'sph':
                     self.process_astro_skymap_model(self.skymap)
                     self.prior = self.fixedsky_prior
                     self.cov = self.compute_cov_fixed_asgwb
                 elif basis=='pixel':
-#                    self.process_astro_skymap_pixel_model(self.skymap)
-#                    self.summ_response_mat = self.response_mat
                     self.prior = self.fixedsky_prior
                     self.cov = self.compute_cov_fixed_asgwb
                 else:
@@ -732,15 +633,9 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 elif basis == 'pixel':
                     ## Tell the submodel how to handle the injection response matrix when it's computed later on
                     self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
-#                    self.inj_response_mat = self.response_mat
                 else:
                     raise TypeError("Basis was not defined, or was incorrectly defined.")
-            
-            
-#            ## compute response matrix
-#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
-#            if basis == 'pixel':
-#                self.inj_response_mat = self.response_mat
+
 
         ## Parameterized astrophysical spatial distributions.
         ## Distinct from the fixedsky/injection-only models as we need spatial inference infrastructure
@@ -757,27 +652,8 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             ## set starting index for spatial model parameters
             self.spatial_start = len(self.spectral_parameters)
             
-            ## set response functions
-            if self.params['tdi_lev']=='michelson':
-                if parallel_response:
-                    self.response = self.unconvolved_pixel_mich_response_parallel
-                    self.response_non_parallel = self.unconvolved_pixel_mich_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.unconvolved_pixel_mich_response
-            elif self.params['tdi_lev']=='xyz':
-                if parallel_response:
-                    self.response = self.unconvolved_pixel_xyz_response_parallel
-                    self.response_non_parallel = self.unconvolved_pixel_xyz_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.unconvolved_pixel_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                if parallel_response:
-                    self.response = self.unconvolved_pixel_aet_response_parallel
-                    self.response_non_parallel = self.unconvolved_pixel_aet_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.unconvolved_pixel_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            ## we won't convolve this response function with anything ahead of time, so set the wrapper
+            self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
             
             ## 2-parameter Milky Way model
             if self.spatial_model_name == '1parametermw':
@@ -849,8 +725,6 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             
             else:
                 raise ValueError("Parameterized astrophysical spatial submodel type not found. Did you add a new model to the list at the top of this section?")
-            
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
         else:
             raise ValueError("Invalid specification of spatial model name ('{}').".format(self.spatial_model_name))
@@ -2312,48 +2186,26 @@ class Injection(fast_geometry):#geometry,sph_geometry):
         self.truevals = {}
         
 
-        ## activate multithreading if desired
-        if inj['parallel_inj'] and inj['inj_nthread']>1:
-            name_args = [(cmn,suff) for cmn, suff in zip(self.component_names,suffixes)]
-            print("Building all injection components in parallel. Number of threads: {}.".format(inj['inj_nthread']))
-            with Pool(inj['inj_nthread']) as pool:
-                component_list = list(pool.imap(self.add_component,name_args))
-            for cm, component_name in zip(component_list,self.component_names):
-                self.components[component_name] = cm
-                self.truevals[component_name] = cm.truevals
-                if cm.has_map:
-                    self.plot_skymaps(component_name)
-        elif inj['parallel_inj'] and inj['response_nthread']>1:
-            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
-                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
-                t1 = time.time()
-                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix,parallel_response=True)
-                t2 = time.time()
-                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
-                self.components[component_name] = cm
-                self.truevals[component_name] = cm.truevals
-
-                if cm.has_map:
-                    self.plot_skymaps(component_name)
-        else:
-            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
-                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
-                t1 = time.time()
-                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
-                t2 = time.time()
-                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
-                self.components[component_name] = cm
-                self.truevals[component_name] = cm.truevals
-
-                if cm.has_map:
-                    self.plot_skymaps(component_name)
+        ## step through and build components
+        ## parallelization has been depreciated now that the response function calculations are handled elsewhere
+        for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+            print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+            t1 = time.time()
+            cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
+            t2 = time.time()
+            print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
+            self.components[component_name] = cm
+            self.truevals[component_name] = cm.truevals
+    
+            if cm.has_map:
+                self.plot_skymaps(component_name)
         
         ## Having initialized all the components, now compute the LISA response functions
         t1 = time.time()
         fast_geometry.__init__(self)
         self.calculate_response_functions(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names],self.params['tdi_lev'])
         t2 = time.time()
-        print("Time elapsed for all components via joint computation was {} s.".format(t2-t1))
+        print("Time elapsed for calculating LISA response functions for all components via joint computation is {} s.".format(t2-t1))
         
         ## initialize default plotting lower ylim
         self.plot_ylim = None
