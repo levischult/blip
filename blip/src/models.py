@@ -227,6 +227,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 if 'alpha_1' not in self.fixedvals.keys():
                     raise KeyError("Fixed-alpha_1 broken power law spectral model selected, but no low-frequeny slope parameter (alpha_1) was provided to the fixedvals dict.")
             else:
+                self.fixedvals[r'$\alpha_1$'] = self.injvals['alpha1']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
                 self.truevals[r'$\alpha_2$'] = self.injvals['alpha2']
                 self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
