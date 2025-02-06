@@ -204,7 +204,7 @@ class fast_geometry(sph_geometry):
             else:
                 rargs = None
             for jj in range(len(self.unique_responses)):
-                if (sm.response_wrapper_func, rargs) == self.wrappers[jj]:
+                if (sm.response_wrapper_func == self.wrappers[jj][0]) and np.array_equal(rargs,self.wrappers[jj][1]):
                     if not self.plot_flag:
                         sm.response_mat = self.unique_responses[jj]
                         if sm.injection:
@@ -533,14 +533,27 @@ class fast_geometry(sph_geometry):
                 raise ValueError("Specification of the response wrapper is unrecognized. Check the implementation of response_wrapper_func for submodel "+sm.spatial_model_name+" in models.py.")
             
             response_shapes.append(sm.response_shape)
-         
+
         ## avoid duplicate calculations by reducing the problem to the set of unique responses that need to be computed
         unique_wrappers = []
         unique_shapes = []
-        for wrapper, arg, shape in zip(wrappers,wrapper_args,response_shapes):
-            if (wrapper,arg) not in unique_wrappers:
+        for ii, (wrapper, arg, shape) in enumerate(zip(wrappers,wrapper_args,response_shapes)):
+#            if (wrapper,arg) not in unique_wrappers:
+#                unique_wrappers.append((wrapper,arg))
+#                unique_shapes.append(shape)
+            
+            ## first one is always unique
+            if ii == 0:
                 unique_wrappers.append((wrapper,arg))
                 unique_shapes.append(shape)
+            else:
+                ## we can't just as if (wrapper, arg) is in unique_wrappers, because numpy is dumb
+                for (previous_wrapper,previous_arg) in unique_wrappers:
+                    if not (wrapper == previous_wrapper and np.array_equal(arg,previous_arg)):
+                        unique_wrappers.append((wrapper,arg))
+                        unique_shapes.append(shape)
+                        
+                        
         self.wrappers = unique_wrappers
         self.unique_responses = [np.zeros(shape,dtype='complex') for shape in unique_shapes]
         
