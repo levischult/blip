@@ -371,7 +371,6 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             else:
                 ## Tell the submodel how to handle the injection response matrix when it's computed later on
                 self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
-#                self.inj_response_mat = self.response_mat
         
         ## This is the spherical harmonic spatial model. It is the workhorse of the spherical harmonic anisotropic analysis.
         ## It can also be used to perform arbitrary injections in the spherical harmonic basis via direct specification of the blms.
@@ -2047,6 +2046,13 @@ class Model():
         self.parameters['spatial'] = spatial_parameters
         self.parameters['all'] = all_parameters
         
+        ## Having initialized all the components, now compute the LISA response functions
+        t1 = time.time()
+        fast_rx = fast_geometry(self.params)
+        fast_rx.calculate_response_functions(self.f0,self.tsegmid,[self.submodels[smn] for smn in self.submodel_names if smn !='noise'],self.params['tdi_lev'])
+        t2 = time.time()
+        print("Time elapsed for calculating the LISA response functions for all submodels via joint computation is {} s.".format(t2-t1))
+        
         ## update colors as needed
         catch_color_duplicates(self)
         
@@ -2137,7 +2143,7 @@ class Model():
 ################################################### 
 
     
-class Injection(fast_geometry):#geometry,sph_geometry):
+class Injection():#geometry,sph_geometry):
     '''
     Class to house all injection attributes in a modular fashion.
     '''
@@ -2201,11 +2207,15 @@ class Injection(fast_geometry):#geometry,sph_geometry):
                 self.plot_skymaps(component_name)
         
         ## Having initialized all the components, now compute the LISA response functions
+        if self.inj['parallel_inj'] and self.inj['response_nthread']>1:
+            rx_nthreads = self.inj['response_nthread']
+        else:
+            rx_nthreads = 1
         t1 = time.time()
-        fast_geometry.__init__(self)
-        self.calculate_response_functions(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names],self.params['tdi_lev'])
+        fast_rx = fast_geometry(self.params,nthreads=rx_nthreads)
+        fast_rx.calculate_response_functions(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names],self.params['tdi_lev'])
         t2 = time.time()
-        print("Time elapsed for calculating LISA response functions for all components via joint computation is {} s.".format(t2-t1))
+        print("Time elapsed for calculating the LISA response functions for all components via joint computation is {} s.".format(t2-t1))
         
         ## initialize default plotting lower ylim
         self.plot_ylim = None

@@ -19,14 +19,22 @@ class fast_geometry(sph_geometry):
     The methods here include calculation of antenna patterns for the Michelson, XYZ, and AET TDI channels.
     The calculations are multilayered and abstracted so as to avoid (almost) all repeated calculations when considering multiple submodels/injection components.
     
+    Arguments
+    -------------------
+    params (dict)  : the parsed parameter dictionary
+    nthreads (int) : number of parallel threads to use. Default 1 (non-parallel).
+    
     '''
 
-    def __init__(self):
+    def __init__(self,params,nthreads=1):
+        
+        self.params = params
+        self.nthreads = nthreads
+        if self.nthreads > 1:
+            self.parallel = True
+        else:
+            self.parallel = False
         self.armlength = 2.5e9
-#        if (not self.injection and self.params['sph_flag']) or (self.injection and self.inj['sph_flag']):
-#        
-##        if self.params['sph_flag'] or self.inj['sph_flag']:
-#            sph_geometry.__init__(self)
 
 
 
@@ -199,10 +207,12 @@ class fast_geometry(sph_geometry):
                 if (sm.response_wrapper_func, rargs) == self.wrappers[jj]:
                     if not self.plot_flag:
                         sm.response_mat = self.unique_responses[jj]
-                        sm.convolve_inj_response_mat()
+                        if sm.injection:
+                            sm.convolve_inj_response_mat()
                     else:
                         sm.unconvolved_fdata_response_mat = self.unique_responses[jj]
-                        sm.convolve_inj_response_mat(fdata_flag=self.plot_flag)
+                        if sm.injection:
+                            sm.convolve_inj_response_mat(fdata_flag=self.plot_flag)
                     response_used[jj] = True
         
         ## safety check to make sure all computed responses were assigned appropriately
@@ -542,8 +552,8 @@ class fast_geometry(sph_geometry):
         
         ## the parallel implementation still has a lot of overhead due to needing to pickle functions and passing them to the threads
         ## unclear if the effects of this will be noticible at scale
-        if self.inj['parallel_inj'] and self.inj['response_nthread']>1:
-            with Pool(self.inj['response_nthread']) as pool:
+        if self.parallel:
+            with Pool(self.nthreads) as pool:
                 result = pool.map(self.frequency_response_wrapper,idx)
                 for ii, R_f in zip(idx,result):
                     self.unpack_wrapper(ii,R_f)

@@ -6,6 +6,7 @@ import sys, os, shutil, configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
+from blip.src.fast_geometry import fast_geometry
 from blip.src.utils import ensure_color_matching
 from blip.tools.plotmaker import cornermaker
 from blip.tools.plotmaker import mapmaker
@@ -178,31 +179,8 @@ class LISA(LISAdata, Model):
         fstar = 3e8/(2*np.pi*self.armlength)
         # define f0 = f/2f*
         f0_data = self.fdata/(2*fstar)
-        self.Injection.calculate_response_functions(f0_data,self.tsegmid,[self.Injection.components[cmn] for cmn in self.Injection.sgwb_component_names],self.params['tdi_lev'],plot_flag=True)
-        
-        
-        ## only do this for gw signals (i.e., not the noise)
-#        for cmn in self.Injection.sgwb_component_names:
-#            
-#            cm = self.Injection.components[cmn]
-#            
-#            #Charactersitic frequency
-#            fstar = 3e8/(2*np.pi*self.armlength)
-#            # define f0 = f/2f*
-#            f0_data = self.fdata/(2*fstar)
-#
-#            ## the response calculations at data frequencies are very cheap, so the (large) memory transfer time to make copies for multiprocessing is not worth the trouble
-#            if hasattr(cm,"response_non_parallel"):
-#                fdata_response = cm.response_non_parallel(f0_data,self.tsegmid,**cm.response_kwargs)
-#            else:
-#                fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
-#            ## need to convolve response with skymap for sph basis anisotropic signals
-#            ## this is done implciitly for pixel-basis injections
-#            if cm.has_map and cm.basis == 'sph':
-#                summ_fdata_response = np.einsum('ijklm,m', fdata_response, cm.alms_inj)
-#                cm.fdata_response_mat = summ_fdata_response
-#            else:
-#                cm.fdata_response_mat = fdata_response
+        fast_rx = fast_geometry(self.params)
+        fast_rx.calculate_response_functions(f0_data,self.tsegmid,[self.Injection.components[cmn] for cmn in self.Injection.sgwb_component_names],self.params['tdi_lev'],plot_flag=True)
         
         return
     
