@@ -265,6 +265,11 @@ class LISA(LISAdata, Model):
         else:
             plot_data = {'injspec_data':{}}
         
+        ## add the full-spectrum simulated data fft to the plotdata dict
+        plot_data['injspec_data']['data_psd'] = {'psdfreqs':psdfreqs,'psd1':data_PSD1,'psd2':data_PSD2,'psd3':data_PSD3}
+        ## also the noise contributions
+        plot_data['injspec_data']['noise_spectra'] = {'noise1':S1,'noise2':S2,'noise3':S3}
+        
         plt.close()
         
         # noise multichannel plots
@@ -277,6 +282,8 @@ class LISA(LISAdata, Model):
             channel_labels = ['X','Y','Z']
         elif self.params['tdi_lev'] == 'aet':
             channel_labels = ['A','E','T']
+        plot_data['injspec_data']['channels'] = channel_labels
+        
         channel_colors = ['black','darkgrey','steelblue']
         ## flag if we need to look at CSDs also
         cross = False
