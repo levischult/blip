@@ -349,21 +349,21 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     if params['load_data']:
         notation_legend_elements = [Line2D([0], [0], color='k', ls='-'),
                                     Patch(color='k',alpha=0.25)]
-        notation_legend_labels = ['Median Fit','$95\%$ C.I.']
+        notation_legend_labels = ['Median Fit',r'$95\%$ C.I.']
         notation_handler_map = {}
         notation_handlelength = None
     elif 'population' in Injection.component_names:
         notation_legend_elements = [(Line2D([0], [0], color='k', ls='--'),Line2D([0], [0], color=Injection.components['population'].color,ls='-',lw=0.75,alpha=0.8)),
                                     Line2D([0], [0], color='k', ls='-'),
                                     Patch(color='k',alpha=0.25)]
-        notation_legend_labels = ['Injection','Median Fit','$95\%$ C.I.']
+        notation_legend_labels = ['Injection','Median Fit',r'$95\%$ C.I.']
         notation_handler_map = {tuple: HandlerTuple(ndivide=None)}
         notation_handlelength = 3
     else:
         notation_legend_elements = [Line2D([0], [0], color='k', ls='--'),
                                     Line2D([0], [0], color='k', ls='-'),
                                     Patch(color='k',alpha=0.25)]
-        notation_legend_labels = ['Injection','Median Fit','$95\%$ C.I.']
+        notation_legend_labels = ['Injection','Median Fit',r'$95\%$ C.I.']
         notation_handler_map = {}
         notation_handlelength = None
     
@@ -528,11 +528,11 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 if sm_name == 'noise':
                     Np = 10**post_sm[0]
                     Na = 10**post_sm[1]
-                    Sgw_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)[2,2,:]
+                    Sgw_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)[0,0,:]
                 elif sm_name == 'fixednoise':
                     Np = 10**sm.fixedvals['log_Np']
                     Na = 10**sm.fixedvals['log_Na']
-                    Sgw_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)[2,2,:]
+                    Sgw_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)[0,0,:]
                 ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
                 elif hasattr(sm,"blm_start"):
                     post_sm_sph = post_sm[sm.blm_start:]
