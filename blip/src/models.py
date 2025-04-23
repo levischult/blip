@@ -567,7 +567,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
                 self.skymap = self.skymap * mask
                 self.fixed_map = True
-            elif self.spatial_model_name == 'lmc':
+            elif self.spatial_model_name == 'fixedlmc':
                 ## plotting stuff
                 self.fancyname = "LMC"
                 self.subscript = r"_{\mathrm{LMC}}"
