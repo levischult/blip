@@ -440,7 +440,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 self.convolve_inj_response_mat = self.sph_convolve_inj_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso','popmap']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','fixedlmc','hotpixel','pixiso','popmap']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
             if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
@@ -567,6 +567,18 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
                 self.skymap = self.skymap * mask
                 self.fixed_map = True
+            elif self.spatial_model_name == 'lmc':
+                ## plotting stuff
+                self.fancyname = "LMC"
+                self.subscript = r"_{\mathrm{LMC}}"
+                self.color = 'darkmagenta'
+                ## generate skymap
+                self.skymap = astro.generate_sdg(self.params['nside']) ## sdg defaults are for the LMC
+                ## mask to only the first four scale heights
+                mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
+                self.skymap = self.skymap * mask
+                self.fixed_map = True
+            
             elif self.spatial_model_name == 'hotpixel':
                 ## get the fixed values
                 ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
