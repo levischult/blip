@@ -509,7 +509,7 @@ class fast_geometry(sph_geometry):
                 wrappers.append(self.sph_asgwb_wrapper)
                 wrapper_args.append(None)
             elif sm.basis == 'pixel':
-                if sm.injection or hasattr(sm,"fixedmap") and sm.fixedmap:
+                if sm.injection or hasattr(sm,"fixed_map") and sm.fixed_map:
                     ## templated anisotropic searches with pre-convolved maps
                     sm.response_shape = (3,3,f0.size, tsegmid.size)
                     sm.response_wrapper_func = self.pix_convolved_asgwb_wrapper
