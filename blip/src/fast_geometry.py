@@ -207,6 +207,8 @@ class fast_geometry(sph_geometry):
                 if (sm.response_wrapper_func == self.wrappers[jj][0]) and np.array_equal(rargs,self.wrappers[jj][1]):
                     if not self.plot_flag:
                         sm.response_mat = self.unique_responses[jj]
+                        ## FIX LATER --- aliasing for now, should standardize everything to sm.response_mat later
+                        sm.summ_response_mat = sm.response_mat 
                         if sm.injection:
                             sm.convolve_inj_response_mat()
                     else:
