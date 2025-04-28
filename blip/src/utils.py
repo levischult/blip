@@ -58,16 +58,23 @@ def gen_suffixes(names):
                  'sph':{'abbrv':'A','count':1},
                  'population':{'abbrv':'P','count':1},
                  'hierarchical':{'abbrv':'H','count':1},
+                 'lmc':{'abbrv':'LMC','count':1},
+                 'sdg':{'abbrv':'DG','count':1},
                  '1parametermw':{'abbrv':'1MW','count':1},
                  '2parametermw':{'abbrv':'2MW','count':1},
                  'galaxy':{'abbrv':'G','count':1},
                  'fixedgalaxy':{'abbrv':'G','count':1},
                  'popmap':{'abbrv':'PM','count':1}} ## having galaxy and fixedgalaxy both map to 'G' is a skosh hacky but solves a later problem and shouldn't cause other issues
     
-    suffixes = ['  $\mathrm{[' for i in range(len(names))]
+    suffixes = [r'  $\mathrm{[' for i in range(len(names))]
     
     ## find duplicates and count them
     dupc = {end:end_lst.count(end) for end in end_lst}
+    
+    ## some handling to prevent things from breaking if the above dict hasn't been updated for a given model
+    for end in end_lst:
+        if end not in shorthand.keys():
+            shorthand |= {end:{'abbrv':'Mod','count':1}}
     
     ## generate the suffixes by assigning the abbreviated notation and numbering as necessary
     for i, (end,suff) in enumerate(zip(end_lst,suffixes)):

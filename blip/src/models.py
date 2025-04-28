@@ -5,10 +5,11 @@ import healpy as hp
 import logging
 import os, shutil, pickle
 import time
-from multiprocessing import Pool
+#from multiprocessing import Pool
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
-from blip.src.sph_geometry import sph_geometry
+#from blip.src.sph_geometry import sph_geometry
+from blip.src.fast_geometry import fast_geometry
 from blip.src.clebschGordan import clebschGordan
 from blip.src.astro import Population
 from blip.src.instrNoise import instrNoise
@@ -21,7 +22,7 @@ import jax.numpy as jnp
 from jax.tree_util import register_pytree_node_class
 
 
-class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
+class submodel(fast_geometry,clebschGordan,instrNoise):
     '''
     Modular class that can represent either an injection or an analysis model. Will have different attributes depending on use case.
     
@@ -226,6 +227,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 if 'alpha_1' not in self.fixedvals.keys():
                     raise KeyError("Fixed-alpha_1 broken power law spectral model selected, but no low-frequeny slope parameter (alpha_1) was provided to the fixedvals dict.")
             else:
+                self.fixedvals[r'$\alpha_1$'] = self.injvals['alpha1']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
                 self.truevals[r'$\alpha_2$'] = self.injvals['alpha2']
                 self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
@@ -356,44 +358,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         ## This is the isotropic spatial model, and has no additional parameters.
         if self.spatial_model_name == 'isgwb':
-            if self.params['tdi_lev'] == 'michelson':
-                if parallel_response:
-                    self.response = self.isgwb_mich_response_parallel
-                    self.response_non_parallel = self.isgwb_mich_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.isgwb_mich_response
-            elif self.params['tdi_lev'] == 'xyz':
-                if parallel_response:
-                    self.response = self.isgwb_xyz_response_parallel
-                    self.response_non_parallel = self.isgwb_xyz_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.isgwb_xyz_response
-                
-            elif self.params['tdi_lev'] == 'aet':
-                if parallel_response:
-                    self.response = self.isgwb_aet_response_parallel
-                    self.response_non_parallel = self.isgwb_aet_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.isgwb_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            
-            ## compute response matrix
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
-            
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
             self.subscript = r"_{\mathrm{I}}"
             self.color='darkorange'
             self.has_map = False
+            self.fullsky = True
 
             if not injection:
                 ## prior transform
                 self.prior = self.isotropic_prior
                 self.cov = self.compute_cov_isgwb
             else:
-                ## create a wrapper b/c isotropic and anisotropic injection responses are different
-                self.inj_response_mat = self.response_mat
+                ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
         
         ## This is the spherical harmonic spatial model. It is the workhorse of the spherical harmonic anisotropic analysis.
         ## It can also be used to perform arbitrary injections in the spherical harmonic basis via direct specification of the blms.
@@ -401,7 +379,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             if injection:
                 if self.inj['inj_basis'] == 'pixel':
-                    raise ValueError("Only astrophysical injections are supported in the pixel basis. Spherical harmonic injections must use the spherical harmonic basis.")
+                    print("Warning: the injection basis has been specified as the pixel basis (inj_basis=pixel), but this is a spherical harmonic injection. \
+                          Spherical harmonic injections must use the spherical harmonic basis (inj_basis=sph).\
+                          Proceeding with the spherical harmonic basis for this component; other components will continue to use the pixel basis.")
                 self.lmax = self.inj['inj_lmax']
             else:
                 self.lmax = self.params['lmax']
@@ -410,35 +390,12 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.almax = 2*self.lmax
             response_kwargs['set_almax'] = self.almax
             
-            if self.params['tdi_lev']=='michelson':
-                if parallel_response:
-                    self.response = self.asgwb_mich_response_parallel
-                    self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.asgwb_mich_response  
-            elif self.params['tdi_lev']=='xyz':
-                if parallel_response:
-                    self.response = self.asgwb_xyz_response_parallel
-                    self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.asgwb_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                if parallel_response:
-                    self.response = self.asgwb_aet_response_parallel
-                    self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.asgwb_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            
-            ## compute response matrix
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
-            
             ## plotting stuff
             self.fancyname = "Anisotropic "+self.fancyname
             self.subscript = r"_{\mathrm{A}}"
             self.color = 'teal'
             self.has_map = True
+            self.fullsky = True
             self.basis = 'sph'
             
             # add the blms
@@ -477,16 +434,13 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 
                 ## get alms
                 self.alms_inj = np.array(self.compute_skymap_alms(self.injvals['blms']).tolist())
-#                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
-                ## get response integrated over the Ylms
-                self.summ_response_mat = self.compute_summed_response(self.alms_inj)
-                ## create a wrapper b/c isotropic and anisotropic injection responses are different
-                self.inj_response_mat = self.summ_response_mat
+                ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                self.convolve_inj_response_mat = self.sph_convolve_inj_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso','popmap']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','fixedlmc','hotpixel','pixiso','popmap']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
             if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
@@ -494,7 +448,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             self.has_map = True
             
-            if (Injection and inj['inj_basis']=='pixel') or (not Injection and params['model_basis']=='pixel'):
+            if (injection and inj['inj_basis']=='pixel') or (not injection and params['model_basis']=='pixel'):
                 basis = 'pixel'
             else:
                 basis = 'sph'
@@ -506,51 +460,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.lmax = self.inj['inj_lmax']
                 self.almax = 2*self.lmax
                 response_kwargs['set_almax'] = self.almax
-                if self.params['tdi_lev']=='michelson':
-                    if parallel_response:
-                        self.response = self.asgwb_mich_response_parallel
-                        self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.asgwb_mich_response  
-                elif self.params['tdi_lev']=='xyz':
-                    if parallel_response:
-                        self.response = self.asgwb_xyz_response_parallel
-                        self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.asgwb_xyz_response
-                elif self.params['tdi_lev']=='aet':
-                    if parallel_response:
-                        self.response = self.asgwb_aet_response_parallel
-                        self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.asgwb_aet_response
-                else:
-                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            elif basis == 'pixel':
-                if self.params['tdi_lev']=='michelson':
-                    if parallel_response:
-                        self.response = self.pixel_mich_response_parallel
-                        self.response_non_parallel = self.pixel_mich_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.pixel_mich_response     
-                elif self.params['tdi_lev']=='xyz':
-                    if parallel_response:
-                        self.response = self.pixel_xyz_response_parallel
-                        self.response_non_parallel = self.pixel_xyz_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.pixel_xyz_response
-                elif self.params['tdi_lev']=='aet':
-                    if parallel_response:
-                        self.response = self.pixel_aet_response_parallel
-                        self.response_non_parallel = self.pixel_aet_response ## useful for data frequencies, external regen
-                    else:
-                        self.response = self.pixel_aet_response
-                else:
-                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
-            
-            
+
             ## model-specific quantities
-            ## injection-only models
             if self.spatial_model_name == 'galaxy':
                 ## store the high-level MW truevals for the hierarchical analysis
                 self.truevals[r'$r_{\mathrm{h}}$'] = self.injvals['rh']
@@ -656,6 +567,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
                 self.skymap = self.skymap * mask
                 self.fixed_map = True
+            elif self.spatial_model_name == 'fixedlmc':
+                ## plotting stuff
+                self.fancyname = "LMC"
+                self.subscript = r"_{\mathrm{LMC}}"
+                self.color = 'darkmagenta'
+                ## generate skymap
+                self.skymap = astro.generate_sdg(self.params['nside']) ## sdg defaults are for the LMC
+                ## mask to only the first four scale heights
+                mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
+                self.skymap = self.skymap * mask
+                self.fixed_map = True
+            
             elif self.spatial_model_name == 'hotpixel':
                 ## get the fixed values
                 ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
@@ -698,20 +621,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             
-            ## compute response matrix
+            ## set skymap
             if basis == 'pixel':
                 response_kwargs['skymap_inj'] = self.skymap #/(np.sum(self.skymap)*hp.nside2pixarea(self.params['nside']))
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+
             
-            ## process skymap
+            ## process skymap, indicate how to compute the response functions later
             if not injection:
                 if basis == 'sph':
                     self.process_astro_skymap_model(self.skymap)
                     self.prior = self.fixedsky_prior
                     self.cov = self.compute_cov_fixed_asgwb
                 elif basis=='pixel':
-#                    self.process_astro_skymap_pixel_model(self.skymap)
-                    self.summ_response_mat = self.response_mat
                     self.prior = self.fixedsky_prior
                     self.cov = self.compute_cov_fixed_asgwb
                 else:
@@ -719,16 +640,14 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 if basis == 'sph':
                     self.process_astro_skymap_injection(self.skymap)
+                    ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                    self.convolve_inj_response_mat = self.sph_convolve_inj_response_mat
                 elif basis == 'pixel':
-                    self.inj_response_mat = self.response_mat
+                    ## Tell the submodel how to handle the injection response matrix when it's computed later on
+                    self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
                 else:
                     raise TypeError("Basis was not defined, or was incorrectly defined.")
-            
-            
-#            ## compute response matrix
-#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
-#            if basis == 'pixel':
-#                self.inj_response_mat = self.response_mat
+
 
         ## Parameterized astrophysical spatial distributions.
         ## Distinct from the fixedsky/injection-only models as we need spatial inference infrastructure
@@ -745,27 +664,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             ## set starting index for spatial model parameters
             self.spatial_start = len(self.spectral_parameters)
             
-            ## set response functions
-            if self.params['tdi_lev']=='michelson':
-                if parallel_response:
-                    self.response = self.unconvolved_pixel_mich_response_parallel
-                    self.response_non_parallel = self.unconvolved_pixel_mich_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.unconvolved_pixel_mich_response
-            elif self.params['tdi_lev']=='xyz':
-                if parallel_response:
-                    self.response = self.unconvolved_pixel_xyz_response_parallel
-                    self.response_non_parallel = self.unconvolved_pixel_xyz_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.unconvolved_pixel_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                if parallel_response:
-                    self.response = self.unconvolved_pixel_aet_response_parallel
-                    self.response_non_parallel = self.unconvolved_pixel_aet_response ## useful for data frequencies, external regen
-                else:
-                    self.response = self.unconvolved_pixel_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            ## we won't convolve this response function with anything ahead of time, so set the wrapper
+            self.convolve_inj_response_mat = self.wrapper_convolve_inj_response_mat
             
             ## 2-parameter Milky Way model
             if self.spatial_model_name == '1parametermw':
@@ -837,8 +737,6 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             else:
                 raise ValueError("Parameterized astrophysical spatial submodel type not found. Did you add a new model to the list at the top of this section?")
-            
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
         else:
             raise ValueError("Invalid specification of spatial model name ('{}').".format(self.spatial_model_name))
@@ -1840,6 +1738,53 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     ##   Skymap and Response Calculations   ##
     ##########################################
     
+    def wrapper_convolve_inj_response_mat(self,fdata_flag=False):
+        '''
+        A wrapper function for the ISGWB and pixel basis cases, the skymaps are convolved implicitly when calculating the response.
+        
+        Arguments
+        -----------
+        fdata_flag (bool) : Whether to compute the convolution for injection frequencies (False, default) or data frequencies (True).
+        
+        Returns
+        -----------
+        (none)
+        
+        '''
+        
+        # create a wrapper b/c isotropic and anisotropic injection responses are handled differently w.r.t. skymap convolution
+        if not fdata_flag:
+            self.inj_response_mat = self.response_mat
+            self.summ_response_mat = self.response_mat
+        else:
+            self.fdata_response_mat = self.unconvolved_fdata_response_mat
+        
+        return
+    
+    def sph_convolve_inj_response_mat(self,fdata_flag=False):
+        '''
+        Function to convolve the sph response matrix with an injected spherical harmonic skymap.
+        
+        Arguments
+        -----------
+        fdata_flag (bool) : Whether to compute the convolution for injection frequencies (False, default) or data frequencies (True).
+        
+        Returns
+        -----------
+        (none)
+        
+        '''
+        
+        if not fdata_flag:
+            ## get response integrated over the Ylms
+            self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+            ## create a wrapper b/c isotropic and anisotropic injection responses are different
+            self.inj_response_mat = self.summ_response_mat
+        else:
+            self.fdata_response_mat = jnp.einsum('ijklm,m', self.unconvolved_fdata_response_mat, self.alms_inj)
+        
+        return
+    
     def compute_skymap_alms(self,blm_params):
         '''
         Function to compute the anisotropic skymap a_lms from the blm parameters.
@@ -1917,9 +1862,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
         self.sph_skymap = hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
         ## get response integrated over the Ylms
-        self.summ_response_mat = self.compute_summed_response(self.alms_inj)
-        ## create a wrapper b/c isotropic and anisotropic injection responses are different
-        self.inj_response_mat = self.summ_response_mat
+#        self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+#        ## create a wrapper b/c isotropic and anisotropic injection responses are different
+#        self.inj_response_mat = self.summ_response_mat
         
         return
     
@@ -2114,6 +2059,13 @@ class Model():
         self.parameters['spatial'] = spatial_parameters
         self.parameters['all'] = all_parameters
         
+        ## Having initialized all the components, now compute the LISA response functions
+        t1 = time.time()
+        fast_rx = fast_geometry(self.params)
+        fast_rx.calculate_response_functions(self.f0,self.tsegmid,[self.submodels[smn] for smn in self.submodel_names if smn !='noise'],self.params['tdi_lev'])
+        t2 = time.time()
+        print("Time elapsed for calculating the LISA response functions for all submodels via joint computation is {} s.".format(t2-t1))
+        
         ## update colors as needed
         catch_color_duplicates(self)
         
@@ -2253,42 +2205,31 @@ class Injection():#geometry,sph_geometry):
         self.truevals = {}
         
 
-        ## activate multithreading if desired
-        if inj['parallel_inj'] and inj['inj_nthread']>1:
-            name_args = [(cmn,suff) for cmn, suff in zip(self.component_names,suffixes)]
-            print("Building all injection components in parallel. Number of threads: {}.".format(inj['inj_nthread']))
-            with Pool(inj['inj_nthread']) as pool:
-                component_list = list(pool.imap(self.add_component,name_args))
-            for cm, component_name in zip(component_list,self.component_names):
-                self.components[component_name] = cm
-                self.truevals[component_name] = cm.truevals
-                if cm.has_map:
-                    self.plot_skymaps(component_name)
-        elif inj['parallel_inj'] and inj['response_nthread']>1:
-            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
-                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
-                t1 = time.time()
-                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix,parallel_response=True)
-                t2 = time.time()
-                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
-                self.components[component_name] = cm
-                self.truevals[component_name] = cm.truevals
-
-                if cm.has_map:
-                    self.plot_skymaps(component_name)
+        ## step through and build components
+        ## parallelization has been depreciated now that the response function calculations are handled elsewhere
+        for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+            print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+            t1 = time.time()
+            cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
+            t2 = time.time()
+            print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
+            self.components[component_name] = cm
+            self.truevals[component_name] = cm.truevals
+    
+            if cm.has_map:
+                self.plot_skymaps(component_name)
+        
+        ## Having initialized all the components, now compute the LISA response functions
+        if self.inj['parallel_inj'] and self.inj['response_nthread']>1:
+            rx_nthreads = self.inj['response_nthread']
         else:
-            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
-                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
-                t1 = time.time()
-                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
-                t2 = time.time()
-                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
-                self.components[component_name] = cm
-                self.truevals[component_name] = cm.truevals
-
-                if cm.has_map:
-                    self.plot_skymaps(component_name)
-            
+            rx_nthreads = 1
+        t1 = time.time()
+        fast_rx = fast_geometry(self.params,nthreads=rx_nthreads)
+        fast_rx.calculate_response_functions(self.f0,self.tsegmid,[self.components[cmn] for cmn in self.sgwb_component_names],self.params['tdi_lev'])
+        t2 = time.time()
+        print("Time elapsed for calculating the LISA response functions for all components via joint computation is {} s.".format(t2-t1))
+        
         ## initialize default plotting lower ylim
         self.plot_ylim = None
         
