@@ -132,7 +132,7 @@ class geometry(sph_geometry):
             L = self.armlength
 
         ## Branch orbiting and stationary cases; compute satellite position in stationary case based off of first time entry in data.
-        if self.params['lisa_config'] == 'stationary':
+        if self.params['lisa_config'] == 'keplerian':
             # Calculate start time from tsegmid
             tstart = tsegmid[0] - (tsegmid[1] - tsegmid[0])/2
             # Fill times array with just the start time
