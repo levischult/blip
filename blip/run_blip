@@ -318,6 +318,7 @@ class LISA(LISAdata, Model):
         ffilt = (self.fdata>=self.params['fmin'])*(self.fdata<=self.params['fmax'])
         plt.loglog(psdfreqs, data_PSD1,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
         plt.loglog(self.fdata[ffilt], C_noise[0, 0, :][ffilt], label='Instrumental Noise ({} Autopower)'.format(channel_labels[0]+channel_labels[0]), lw=0.75,color='dimgrey')
+
         
         ymins = []
         ymeds = []
