@@ -588,8 +588,11 @@ class geometry(sph_geometry):
         # Create 2D array of (x,y,z) unit vectors for every sky direction.
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
 
-        # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
-        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
+        if self.params['lisa_config'] == 'keplerian':
+            rs1, rs2, rs3 = self.lisa_orbits_keplerian(tsegmid)
+        else:
+            # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
+            rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
 
         ## Calculate directional unit vector dot products
         ## Dimensions of udir is time-segs x sky-pixels
