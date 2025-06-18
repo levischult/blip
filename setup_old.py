@@ -24,7 +24,7 @@ setup(
     install_requires=[
         "numpy",
         "matplotlib",
-        "healpy",
+        "healpy==1.15.2",
         "chainconsumer",
         "sympy",
         "legwork",
