@@ -162,7 +162,7 @@ def ensure_color_matching(Model,Injection):
     
     return
 
-def get_robson19_shape_pars_from_tobs(T_obs,shape_pars=[r"$\\alpha_{\\rm shape}$", r"$\\beta$", r"$\\kappa$", r"$\\gamma$", r"$f_{\\rm knee}$"]):
+def get_robson19_shape_pars_from_tobs(T_obs,shape_pars=[r"$\alpha_{\rm shape}$", r"$\beta$", r"$\kappa$", r"$\gamma$", r"$f_{\rm knee}$"]):
     '''
     Function to return the time-dependent foreground shape parameters of the Robson+19 analytic foreground spectrum,
     given an observing time in years. The function will round the given duration to the closest observing time 
@@ -172,7 +172,7 @@ def get_robson19_shape_pars_from_tobs(T_obs,shape_pars=[r"$\\alpha_{\\rm shape}$
     -------------
     T_obs (float)    :  Observing duration **in years**. Will be rounded to one of (6mo, 1yr, 2yr, 4yr).
     shape_pars (list of str) : Names of the desired shape parameters (default all) from 
-                                r"$\\alpha_{\\rm shape}$", r"$\\beta$", r"$\\kappa$", r"$\\gamma$", r"$f_{\\rm knee}$'
+                                r"$\alpha_{\rm shape}$", r"$\beta$", r"$\kappa$", r"$\gamma$", r"$f_{\rm knee}$'
     
     Returns
     -------------
@@ -182,8 +182,8 @@ def get_robson19_shape_pars_from_tobs(T_obs,shape_pars=[r"$\\alpha_{\\rm shape}$
     ## values from Table 1 of Robson+19
     r19_table1 = {'6mo':{r"$\\alpha_{\\rm shape}$":0.133, r"$\\beta$":243, r"$\\kappa$":482, r"$\\gamma$":917, r"$f_{\\rm knee}$":0.00258},
                   '1yr':{r"$\\alpha_{\\rm shape}$":0.171, r"$\\beta$":292, r"$\\kappa$":1020, r"$\\gamma$":1680, r"$f_{\\rm knee}$":0.00215},
-                  '2yr':{r"$\\alpha_{\\rm shape}$":0.165, r"$\\beta$":299, r"$\\kappa$":611, r"$\\gamma$":1340, r"$f_{\\rm knee}$":0.00173},
-                  '4yr':{r"$\\alpha_{\\rm shape}$":0.138, r"$\\beta$":-221, r"$\\kappa$":521, r"$\\gamma$":1680, r"$f_{\\rm knee}$":0.00113}
+                  '2yr':{r"$\alpha_{\rm shape}$":0.165, r"$\beta$":299, r"$\kappa$":611, r"$\gamma$":1340, r"$f_{\rm knee}$":0.00173},
+                  '4yr':{r"$\alpha_{\rm shape}$":0.138, r"$\beta$":-221, r"$\kappa$":521, r"$\gamma$":1680, r"$f_{\rm knee}$":0.00113}
                   }
     ## catch if T_obs is given in s
     if type(T_obs) is not str:
