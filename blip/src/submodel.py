@@ -1367,6 +1367,33 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         ## defined in terms of Sgw, so need to convert to be in terms of Omegaf
         return self.compute_Omega0_from_Sgw(fs,Sgw)
 
+
+    def oneside_step_fn(self, fs, logAmin, logAmax, fmin, fmax):
+        '''
+        Function to calculate an analytical spectrum for cataclysmic variables that is a one sided step function in frequency
+        with Amin being the amplitude below fmin and Amax being the amplitude above fmin, and a hard cutoff at fmax.
+
+        NOTE: this is given in terms of PSD amplitude A, as opposed to the usual units used in BLIP (dimensionless GW energy density)
+
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        Amin (float) : power law amplitude of the power law in units of **PSD** below fmin
+        Amax (float) : power law amplitude of the power law in units of **PSD** above fmin
+        fmin (float) : frequency of the step function
+        fmax (float) : frequency of the hard cutoff
+
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting analytical foreground spectrum
+
+        '''
+        # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
+        # LSS and where f is higher than fmax, use 0.
+        Sgw = jnp.where(fs < fmin, 10**logAmin, 10**logAmax) * jnp.where(fs < fmax, 1, 0)
+
+        return self.compute_Omega0_from_Sgw(fs,Sgw)
+
     def fixed_truncated_powerlaw_spectrum(self,fs):
         '''
         Function to calculate a tanh-truncated power law spectrum with all parameters fixed.
