@@ -473,16 +473,16 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             ## additional, time-dependent shape parameters due to subtraction of resolved systems
             ## for the BLIP implementation, it has been recast into Omega_GW space
             ## NOTE: This version has no fixed parameters.
-            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10}A_{\rm min}$', r'$\log_{10}A_{\rm max}$', r'$f_{\rm min}$', r'$f_{\rm max}$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10}A_{\rm min}$', r'$\log_{10}A_{\rm max}$', r'$\log_{10}f_{\rm min}$', r'$\log_{10}f_{\rm max}$']
             self.omegaf = self.oneside_step_fn_4par_spectrum
             self.fancyname = "CV step function"+submodel_count
             if not injection:
                 self.spectral_prior = self.oneside_step_fn_4par_prior
             else:
-                self.truevals[r'$\log_{10}A_{\rm min}$'] = jnp.log10(self.injvals['logA_min'])
-                self.truevals[r'$\log_{10}A_{\rm max}$'] = jnp.log10(self.injvals['logA_max'])
-                self.truevals[r'$\log_{10}f_{\rm min}$'] = self.injvals['logf_min']
-                self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logf_max']
+                self.truevals[r'$\log_{10}A_{\rm min}$'] = jnp.log10(self.injvals['logAmin'])
+                self.truevals[r'$\log_{10}A_{\rm max}$'] = jnp.log10(self.injvals['logAmax'])
+                self.truevals[r'$\log_{10}f_{\rm min}$'] = self.injvals['logfmin']
+                self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logfmax']
                 self.fixedvals = self.truevals
 
         elif self.spectral_model_name == 'brokentruncatedpowerlaw':
@@ -1434,7 +1434,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         '''
         # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
         # LSS and where f is higher than fmax, use 0.
-        Sgw = jnp.where(fs < 10**logfmin, 10**logAmin, 10**logAmax) * jnp.where(fs < 10**logfmax, 1, 0)
+        Sgw = jnp.where(fs < 10**logfmin, 10**logAmin, 10**logAmax) * jnp.where(fs < 10**logfmax, 1, 1e-52)
 
         return self.compute_Omega0_from_Sgw(fs,Sgw)
 
