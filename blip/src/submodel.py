@@ -479,8 +479,8 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
             if not injection:
                 self.spectral_prior = self.oneside_step_fn_4par_prior
             else:
-                self.truevals[r'$\log_{10}A_{\rm min}$'] = jnp.log10(self.injvals['logAmin'])
-                self.truevals[r'$\log_{10}A_{\rm max}$'] = jnp.log10(self.injvals['logAmax'])
+                self.truevals[r'$\log_{10}A_{\rm min}$'] = self.injvals['logAmin']
+                self.truevals[r'$\log_{10}A_{\rm max}$'] = self.injvals['logAmax']
                 self.truevals[r'$\log_{10}f_{\rm min}$'] = self.injvals['logfmin']
                 self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logfmax']
                 self.fixedvals = self.truevals
@@ -2180,8 +2180,8 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
     def oneside_step_fn_4par_prior(self,theta):
         # LSS logAmin, logAmax, logfmin, logfmax
 
-        logAmin = (-39+48)*theta[0] - 48 # [-48, -39]
-        logAmax = (-35+43)*theta[1] - 43 # [-43, -35]
+        logAmin = (-33+42)*theta[0] - 42 # [-42, -33]
+        logAmax = (-29+37)*theta[1] - 37 # [-37, -29]
         logfmin = (-3.46+3.70)*theta[2] - 3.70 # [-3.70, -3.46]
         logfmax = (-3.22+3.46)*theta[3] - 3.46 # [-3.46, -3.22]
 
