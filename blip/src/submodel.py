@@ -468,11 +468,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 self.fixedvals = self.truevals
 
         elif self.spectral_model_name == 'onesidestep4par':
-            ## implementation of the Robson+19 analytic foreground model.
-            ## this is a variation of the tanh-truncated foreground, but with
-            ## additional, time-dependent shape parameters due to subtraction of resolved systems
-            ## for the BLIP implementation, it has been recast into Omega_GW space
-            ## NOTE: This version has no fixed parameters.
+            # LSS a flat with step function (detector frame) spectral model for CV stochastic signal
             self.spectral_parameters = self.spectral_parameters + [r'$\log_{10}A_{\rm min}$', r'$\log_{10}A_{\rm max}$', r'$\log_{10}f_{\rm min}$', r'$\log_{10}f_{\rm max}$']
             self.omegaf = self.oneside_step_fn_4par_spectrum
             self.fancyname = "CV step function"+submodel_count
@@ -482,6 +478,18 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10}A_{\rm min}$'] = self.injvals['logAmin']
                 self.truevals[r'$\log_{10}A_{\rm max}$'] = self.injvals['logAmax']
                 self.truevals[r'$\log_{10}f_{\rm min}$'] = self.injvals['logfmin']
+                self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logfmax']
+                self.fixedvals = self.truevals
+
+        elif self.spectral_model_name == 'onesidestep2par':
+
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10}A_{\rm max}$', r'$\log_{10}f_{\rm max}$']
+            self.omegaf = self.oneside_step_fn_2par_spectrum
+            self.fancyname = "CV step function"+submodel_count
+            if not injection:
+                self.spectral_prior = self.oneside_step_fn_2par_prior
+            else:
+                self.truevals[r'$\log_{10}A_{\rm max}$'] = self.injvals['logAmax']
                 self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logfmax']
                 self.fixedvals = self.truevals
 
@@ -1385,33 +1393,6 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         ## defined in terms of Sgw, so need to convert to be in terms of Omegaf
         return self.compute_Omega0_from_Sgw(fs,Sgw)
 
-
-    def oneside_step_fn_3par_spectrum(self, fs, logAmax, fmin, fmax):
-        '''
-        Function to calculate an analytical spectrum for cataclysmic variables that is a one sided step function in frequency
-        with Amin being the amplitude below fmin and Amax being the amplitude above fmin, and a hard cutoff at fmax.
-
-        NOTE: this is given in terms of PSD amplitude A, as opposed to the usual units used in BLIP (dimensionless GW energy density)
-
-        Arguments
-        -----------
-        fs (array of floats) : frequencies at which to evaluate the spectrum
-        logAmax (float) : power law amplitude of the power law in units of **PSD** above fmin
-        fmin (float) : frequency of the step function
-        fmax (float) : frequency of the hard cutoff
-
-        Returns
-        -----------
-        spectrum (array of floats) : the resulting analytical foreground spectrum
-
-        '''
-        # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
-        # LSS and where f is higher than fmax, use 0.
-        Sgw = jnp.where(fs < fmin, 10**self.fixedvals['logAmin'], 10**logAmax) * jnp.where(fs < fmax, 1, 0)
-
-        return self.compute_Omega0_from_Sgw(fs,Sgw)
-    
-    
     def oneside_step_fn_4par_spectrum(self, fs, logAmin, logAmax, logfmin, logfmax):
         '''
         Function to calculate an analytical spectrum for cataclysmic variables that is a one sided step function in frequency
@@ -1432,11 +1413,39 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         spectrum (array of floats) : the resulting analytical foreground spectrum
 
         '''
+        fref = 4.5e-4 # LSS hard coding a reference freq that is the rough cutoff of 1kpc pop
         # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
         # LSS and where f is higher than fmax, use 0.
         Sgw = jnp.where(fs < 10**logfmin, 10**logAmin, 10**logAmax) * jnp.where(fs < 10**logfmax, 1, 1e-52)
+        corrSgw = Sgw * (fs/fref)**(-7/3) # LSS while the PSD is flat in the detector frame, the astrophysical frame is a power law related to inspiraling binaries (f^-7/3)
+        return self.compute_Omega0_from_Sgw(fs,corrSgw)
+    
+    def oneside_step_fn_2par_spectrum(self, fs, logAmax, logfmax):
+        '''
+        Function to calculate an analytical spectrum for cataclysmic variables that is a one sided step function in frequency
+        with Amin being the amplitude below fmin and Amax being the amplitude above fmin, and a hard cutoff at fmax.
 
-        return self.compute_Omega0_from_Sgw(fs,Sgw)
+        NOTE: this is given in terms of PSD amplitude A, as opposed to the usual units used in BLIP (dimensionless GW energy density)
+
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        logAmax (float) : power law amplitude of the power law in units of **PSD** above fmin
+        logfmax (float) : log10 of the frequency of the hard cutoff
+
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting analytical foreground spectrum
+
+        '''
+        fref = 4.5e-4 # LSS hard coding a reference freq that is the rough cutoff of 1kpc pop
+        logAmin = logAmax - 1
+        logfmin = logfmax - 0.22
+        # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
+        # LSS and where f is higher than fmax, use 0.
+        Sgw = jnp.where(fs < 10**logfmin, 10**logAmin, 10**logAmax) * jnp.where(fs < 10**logfmax, 1, 1e-52)
+        corrSgw = Sgw * (fs/fref)**(-7/3) # LSS while the PSD is flat in the detector frame, the astrophysical frame is a power law related to inspiraling binaries (f^-7/3)
+        return self.compute_Omega0_from_Sgw(fs,corrSgw)
 
     def fixed_truncated_powerlaw_spectrum(self,fs):
         '''
@@ -2181,12 +2190,21 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         # LSS logAmin, logAmax, logfmin, logfmax
 
         logAmin = (-33+42)*theta[0] - 42 # [-42, -33]
-        logAmax = (-29+37)*theta[1] - 37 # [-37, -29]
+        logAmax = (-29+36)*theta[1] - 37 # [-36, -29]
         logfmin = (-3.46+3.70)*theta[2] - 3.70 # [-3.70, -3.46]
         logfmax = (-3.22+3.46)*theta[3] - 3.46 # [-3.46, -3.22]
 
 
         return [logAmin, logAmax, logfmin, logfmax]
+    
+    def oneside_step_fn_2par_prior(self,theta):
+        # LSS logAmax, logfmax
+
+        logAmax = (-29+36)*theta[1] - 37 # [-36, -29]
+        logfmax = (-3.22+3.46)*theta[3] - 3.46 # [-3.46, -3.22]
+
+
+        return [logAmax, logfmax]
 
 
     def lmcspec_prior(self,theta):
