@@ -2190,7 +2190,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         # LSS logAmin, logAmax, logfmin, logfmax
 
         logAmin = (-33+42)*theta[0] - 42 # [-42, -33]
-        logAmax = (-29+36)*theta[1] - 37 # [-36, -29]
+        logAmax = (-29+36)*theta[1] - 36 # [-36, -29]
         logfmin = (-3.46+3.70)*theta[2] - 3.70 # [-3.70, -3.46]
         logfmax = (-3.22+3.46)*theta[3] - 3.46 # [-3.46, -3.22]
 
@@ -2200,7 +2200,7 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
     def oneside_step_fn_2par_prior(self,theta):
         # LSS logAmax, logfmax
 
-        logAmax = (-29+36)*theta[1] - 37 # [-36, -29]
+        logAmax = (-29+36)*theta[1] - 36 # [-36, -29]
         logfmax = (-3.22+3.46)*theta[3] - 3.46 # [-3.46, -3.22]
 
 
