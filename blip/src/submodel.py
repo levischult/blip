@@ -576,6 +576,9 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
 
 
             #self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$', r'$\alpha_2$', r'$\alpha_3$', r'$\delta_1$', r'$\delta_2$', r'$\log_{10}\Omega_{\rm GW}$',r'$\log_{10}f_{\rm cut}$', r'$\log_{10}f_{\rm scale}$', r'$\log_{10}f_{\rm break1}$', r'$\log_{10}f_{\rm break2}$']
+            self.fixed_spec = True
+            self.cov_fixed = self.compute_cov_fixed([])
+            self.spectral_parameters = self.spectral_parameters
             self.omegaf = self.allfixed_truncated_doublebroken_powerlaw_spectrum
             self.fancyname = "MW Foreground"+submodel_count
             if not injection:

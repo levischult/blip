@@ -70,7 +70,13 @@ class LISA(LISAdata, Model):
                 calculate_response_functions(self.fdata, self.tsegmid, submodels_sgwb, params)
             else:
                 get_model_responses(self.Model)
-            
+
+            for sm in self.Model.submodels.values():
+                if len(sm.parameters)==0:
+                    sm.fixed_Sgw = sm.compute_Sgw(self.fdata, [])
+                    sm.fixed_cov = sm.fixed_Sgw[None,None,:,None] * sm.response_mat
+                    sm.cov = sm.compute_cov_fixed
+
             # make sure matching injections/models have matching colors
             if not self.params['load_data']:
                 ensure_color_matching(self.Model,self.injection)
