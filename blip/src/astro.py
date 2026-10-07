@@ -74,7 +74,6 @@ class Population():
             self.PSD_true = self.pop2spec(pop,self.fftfreqs,self.params['seglen']*u.s,return_median=False,plot=False)[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
             self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
             self.Sgw = self.PSD
-            ## reweight to match what we are injecting at data frequencies
             self.Sgw_true = self.PSD_true #* (self.params['seglen']/self.params['tsplice'])
         
         
@@ -194,14 +193,14 @@ class Population():
 
         <h(t)^2> = 8A^2.
 
-        The PSD contribution from the monochromatic binary at
+        The time-averaged PSD contribution from the monochromatic binary at
         frequency resolution df = 1/Tobs is then
 
-        PSD = (1/df) * < h(t)^2 >
+        PSD = 1/2 * (1/df) * < h(t)^2 >
 
         which in the optimal inclination case is
 
-        PSD = 8 * (1/df) * A^2.
+        PSD = 4 * (1/df) * A^2.
 
         Note that by combining the + and x contributions prior to convolution with the LISA
         response functions, we implicitly assume that the overall population produces an
@@ -225,7 +224,7 @@ class Population():
         h2s = (1+cos_incs**2)**2 * hs**2 + 4 * cos_incs**2 * hs**2
 
 
-        binary_psds = h2s/df
+        binary_psds = 0.5 * h2s/df
         
         return binary_psds
     
@@ -252,7 +251,7 @@ class Population():
         elif noise_PSD=='no_fg':
             noise_PSD = lw.psd.lisa_psd(fs,t_obs=t_obs,confusion_noise=None)
         ## we want the SNRs for the resolved binaries at the full frequency resolution
-        SNRs = cls.get_binary_psd(hs,cos_incs,1/t_obs)/(4*noise_PSD)
+        SNRs = np.sqrt(cls.get_binary_psd(hs,cos_incs,1/t_obs)/(4*noise_PSD))
         return SNRs
     
     @staticmethod
@@ -326,11 +325,7 @@ class Population():
             print("Warning: frequency resolution exceeds the maximum allowed by t_obs.")
         
         ## bin
-        fg_hist_binned, edges = np.histogram(fs,bins=bins,weights=PSDs_unres)
-
-        ## np.histogram computes p((1/dfbin)*h^2|f) x N_unres x dfbin
-        ## PSD should be p(h^2|f) x N_unres / dfbin
-        fg_PSD_binned = fg_hist_binned #/ (bin_width)
+        fg_PSD_binned, edges = np.histogram(fs,bins=bins,weights=PSDs_unres)
     
         ## get running median if needed
         if plot or return_median:
