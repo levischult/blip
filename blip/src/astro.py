@@ -273,8 +273,13 @@ class Population():
             data = [data]
         if get_type=='unresolved':
             data_filt = [data_i[SNRs<SNR_cut] for data_i in data]
+            n_resolved = len(data[0])-len(data_filt[0])
+            # if n_resolved < 1000:
+            #     np.save('./resolved_binaries.npz', [data_i[SNRs>SNR_cut] for data_i in data])
             if len(data_filt) == 1:
                 data_filt = data_filt[0]
+
+            print(f'{len(data_filt[0])} unresolved binaries found with SNR < {SNR_cut}.\n This removed {n_resolved} binaries from the population.')
             return data_filt
         elif get_type=='resolved':
             data_filt = [data_i[SNRs>=SNR_cut] for data_i in data]

@@ -493,6 +493,23 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logfmax']
                 self.fixedvals = self.truevals
 
+        elif self.spectral_model_name == 'ALLFIXEDCVthinonesidestep2par':
+
+            self.fixed_spec = True
+            self.spectral_parameters = self.spectral_parameters 
+            self.omegaf = self.allfixed_oneside_step_fn_2par_spectrum
+            self.fancyname = "CV step function"+submodel_count
+            if not injection:
+                self.fixedvals[r'$\log_{10}A_{\rm max}$'] = -35.92
+                self.fixedvals[r'$\log_{10}f_{\rm max}$'] = -3.375
+
+                self.spectral_prior = self.fixed_model_wrapper_prior
+            else:
+                self.truevals[r'$\log_{10}A_{\rm max}$'] = self.injvals['logAmax']
+                self.truevals[r'$\log_{10}f_{\rm max}$'] = self.injvals['logfmax']
+                self.fixedvals = self.truevals
+
+
         elif self.spectral_model_name == 'brokentruncatedpowerlaw':
             ## implementation of a broken, truncated power law foreground model.
             ## this is a variation of the tanh-truncated foreground, but with
@@ -577,7 +594,6 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
 
             #self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$', r'$\alpha_2$', r'$\alpha_3$', r'$\delta_1$', r'$\delta_2$', r'$\log_{10}\Omega_{\rm GW}$',r'$\log_{10}f_{\rm cut}$', r'$\log_{10}f_{\rm scale}$', r'$\log_{10}f_{\rm break1}$', r'$\log_{10}f_{\rm break2}$']
             self.fixed_spec = True
-            self.cov_fixed = self.compute_cov_fixed([])
             self.spectral_parameters = self.spectral_parameters
             self.omegaf = self.allfixed_truncated_doublebroken_powerlaw_spectrum
             self.fancyname = "MW Foreground"+submodel_count
@@ -1619,6 +1635,86 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
         corrSgw = Sgw * (fs/fref)**(-7/3) # LSS while the PSD is flat in the detector frame, the astrophysical frame is a power law related to inspiraling binaries (f^-7/3)
         return self.compute_Omega0_from_Sgw(fs,corrSgw)
 
+    def allfixed_oneside_step_fn_2par_spectrum(self, fs, placeholder=[]):
+        '''
+        Function to calculate an analytical spectrum for cataclysmic variables that is a one sided step function in frequency
+        with Amin being the amplitude below fmin and Amax being the amplitude above fmin, and a hard cutoff at fmax.
+
+        NOTE: this is given in terms of PSD amplitude A, as opposed to the usual units used in BLIP (dimensionless GW energy density)
+
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        logAmax (float) : power law amplitude of the power law in units of **PSD** above fmin
+        logfmax (float) : log10 of the frequency of the hard cutoff
+
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting analytical foreground spectrum
+
+        '''
+
+        fref = 4.5e-4 # LSS hard coding a reference freq that is the rough cutoff of 1kpc pop
+        logAmax = -35.92
+        logfmax = -3.375
+        logAmin = logAmax - 1
+        logfmin = logfmax - 0.22
+        # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
+        # LSS and where f is higher than fmax, use 0.
+        Sgw = jnp.where(fs < 10**logfmin, 10**logAmin, 10**logAmax) * jnp.where(fs < 10**logfmax, 1, 1e-52)
+        corrSgw = Sgw * (fs/fref)**(-7/3) # LSS while the PSD is flat in the detector frame, the astrophysical frame is a power law related to inspiraling binaries (f^-7/3)
+        return self.compute_Omega0_from_Sgw(fs,corrSgw)
+
+    def truncated_doublebroken_powerlaw_stepfunc_spectrum(self,fs,alpha_1, alpha_2, alpha_3, delta1, delta2, log_omega0, log_fcut, log_fscale, log_fbreak1, log_fbreak2, log_fstepmax, log_Astep):
+            '''
+            Function to calculate a tanh-truncated power law spectrum.
+
+            Arguments
+            -----------
+            fs (array of floats) : frequencies at which to evaluate the spectrum
+            alpha_1 (float)      : slope of the first power law
+            alpha_2 (float)      : slope of the second power law
+            alpha_3 (float)      : slope of the third power law
+            delta1 (float)       : smoothing parameter between the first and second powerlaws.
+            delta2 (float)       : smoothing parameter between the second and third powerlaws.
+            log_omega0 (float)   : power law amplitude of the power law in units of log dimensionless GW energy density at f_ref (if left un-truncated)
+            log_fcut (float)     : log of the cut frequency ("knee") in Hz
+            log_fscale           : log of the cutoff scale factor in Hz
+            log_fbreak1 (float)  : log of the first break frequency ("knee") in Hz
+            log_fbreak2 (float)  : log of the second break frequency ("knee") in Hz
+
+            Returns
+            -----------
+            spectrum (array of floats) : the resulting truncated power law spectrum
+
+            '''
+            fcut = 10**log_fcut
+            fscale = 10**log_fscale
+            fbreak1 = 10**log_fbreak1
+            fbreak2 = 10**log_fbreak2
+            norm = (fbreak1/self.params['fref'])**alpha_1 ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
+
+            brokenpl1 = (1+(fs/fbreak1)**(1/delta1))**((alpha_1-alpha_2)*delta1)
+            brokenpl2 = (1+(fs/fbreak2)**(1/delta2))**((alpha_2-alpha_3)*delta2)
+            tanhtrunc = (1+jnp.tanh((fcut-fs)/fscale))
+
+            # LSS this is in Omega
+            dbtpl = 0.5 * norm * (10**log_omega0)*(fs/fbreak1)**(alpha_1) * tanhtrunc * brokenpl1 * brokenpl2
+
+            stepfref = 4.5e-4 # LSS hard coding a reference freq that is the rough cutoff of 1kpc pop
+            logAmax = log_Astep
+            logfmax = log_fstepmax
+            logAmin = logAmax - 1
+            logfmin = logfmax - 0.22
+            # LSS where f is lower than fmin, use logAmin, where f is higher than fmin but lower than fmax, use logAmax, 
+            # LSS and where f is higher than fmax, use 0.
+            Sgw = jnp.where(fs < 10**logfmin, 10**logAmin, 10**logAmax) * jnp.where(fs < 10**logfmax, 1, 1e-52)
+            corrSgw = Sgw * (fs/stepfref)**(-7/3) # LSS while the PSD is flat in the detector frame, the astrophysical frame is a power law related to inspiraling binaries (f^-7/3)
+            stepfunc = self.compute_Omega0_from_Sgw(fs,corrSgw)
+
+            dbtplsf = dbtpl + stepfunc
+            return dbtplsf
+
     def fixed_truncated_powerlaw_spectrum(self,fs):
         '''
         Function to calculate a tanh-truncated power law spectrum with all parameters fixed.
@@ -2415,6 +2511,48 @@ class submodel(fast_geometry,clebschGordan,instrNoise):
 
 
         return [logAmax, logfmax]
+
+    def truncated_doublebroken_powerlaw_stepfunc_prior(self,theta):
+        '''
+        Prior function for a stochastic signal search with a truncated doublebroken power law spectral with a step function model.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. 
+            The elements are  interpreted as alpha_1, alpha_2, alpha_3, delta1, delta2, log_omega0, log_fcut, log_fscale, log_fbreak1, log_fbreak2, log_fstepmax, log_Astep
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        alpha_1 = 10*theta[0] - 4
+        alpha_2 = 40*theta[1]
+        alpha_3 = (34+44)*theta[2] - 44 # LSS [34, 44] so alpha2-alpha3 is [-44, 6], equivalent to alpha1-alpha2 range.
+        delta1 = 0.99*theta[3] + 0.01
+        delta2 = 0.99*theta[4] + 0.01
+        log_omega0 = -22*theta[5]
+        # LSS  .8-10 mHz in log10 is -3.0969100130080562 to -2.0
+        log_fcut = -(1.0969100130080562*theta[6] + 2) 
+        log_fscale = -2*theta[7] - 2
+        # LSS .6-.8mHz in log10 is -3.2218487496163566 to -3.0969100130080562
+        log_fbreak1 = (-3.0969100130080562+3.2218487496163566)*theta[8] - 3.2218487496163566 
+        # LSS .2-.599 mHz in log10 is -3.6989700043360187 to -3.2225731776106885
+        log_fbreak2 = (-3.2225731776106885+3.6989700043360187)*theta[9] - 3.6989700043360187 
+
+        log_fstepmax = (-29+38)*theta[10] - 38 # [-38, -29]
+        log_Astep = (-3.22+3.46)*theta[11] - 3.46 # [-3.46, -3.22]
+
+        return [alpha_1, alpha_2, alpha_3, delta1, delta2, log_omega0, log_fcut, log_fscale, log_fbreak1, log_fbreak2, log_fstepmax, log_Astep]
+
+
 
 
     def lmcspec_prior(self,theta):

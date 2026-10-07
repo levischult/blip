@@ -74,7 +74,7 @@ class LISA(LISAdata, Model):
             for sm in self.Model.submodels.values():
                 if len(sm.parameters)==0:
                     sm.fixed_Sgw = sm.compute_Sgw(self.fdata, [])
-                    sm.fixed_cov = sm.fixed_Sgw[None,None,:,None] * sm.response_mat
+                    sm.cov_fixed = sm.fixed_Sgw[None,None,:,None] * sm.response_mat
                     sm.cov = sm.compute_cov_fixed
 
             # make sure matching injections/models have matching colors
