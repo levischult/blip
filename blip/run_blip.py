@@ -686,6 +686,7 @@ def run_pipeline(parsed_params, resume, pre_sample_hook=None):
         if nthread > 1:
             os.environ["XLA_FLAGS"] = '--xla_force_host_platform_device_count={}'.format(nthread)
         from blip.src.numpyro_engine import numpyro_engine
+        import jax
 
         ## create engine
         Ntotal = params['Nsamples']
@@ -709,13 +710,25 @@ def run_pipeline(parsed_params, resume, pre_sample_hook=None):
             ## remove the functions which calculate responses so these aren't traced by JAX
             if hasattr(lisaModel,"calculate_response_functions"):
                 delattr(lisaModel,"calculate_response_functions")
-            
+
+            ## optionally optimize each chain to the MAP and start sampling from there
+            ## (done after the delattr above so the response calculation isn't traced)
+            if params['init_to_map']:
+                rng_key, map_key = jax.random.split(rng_key)
+                init_params, map_samples = numpyro_engine.find_map(engine,lisaModel,map_key,params['map_steps'],params['map_lr'])
+                np.savetxt(params['out_dir'] + "/map_estimate.txt",map_samples)
+                print("Saved MAP estimate(s) to "+params['out_dir']+"/map_estimate.txt")
+            else:
+                init_params = None
+
         else:
             resume_file = params['out_dir']+'/checkpoint.pickle'
             engine, rng_key, chain = numpyro_engine.load_engine(resume_file)
             with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
                 lisaModel = pickle.load(modfile)
             parameters = lisaModel.parameters
+            ## resumed runs start from the checkpointed state, not a new initialization
+            init_params = None
             ## remove the functions which calculate responses so these aren't traced by JAX
             if hasattr(lisaModel,"calculate_response_functions"):
                 print("got here")
@@ -747,12 +760,12 @@ def run_pipeline(parsed_params, resume, pre_sample_hook=None):
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
             t1 = time.time()
-            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,params['checkpoint_at'],resume=resume)
+            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,params['checkpoint_at'],resume=resume,init_params=init_params)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:
             t1 = time.time()
-            post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
+            post_samples = numpyro_engine.run_engine(engine,lisa,rng_key,init_params=init_params)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         ## save chain
