@@ -278,6 +278,24 @@ SECTION_RUN_PARAMS = [
         "Nsamples", desc="Number of samples. Affects emcee and numpyro.", default="1000"
     ),
     Option(
+        "init_to_map",
+        desc="""
+            If true, optimize each numpyro chain to the maximum a posteriori point (in the sampler's
+            unconstrained space) before sampling, and start the chain there. Each chain is optimized
+            independently from its own random start. Results are saved to map_estimate.txt. numpyro only.""",
+        default="false",
+    ),
+    Option(
+        "map_steps",
+        desc="Number of Adam optimizer steps per chain for the MAP search (numpyro only, used if `init_to_map` is true).",
+        default="2000",
+    ),
+    Option(
+        "map_lr",
+        desc="Adam learning rate for the MAP search (numpyro only, used if `init_to_map` is true).",
+        default="0.01",
+    ),
+    Option(
         "show_progress",
         desc="If false, disable numpyro progress bar. Disabling improves performance, especially when multithreading.",
         default="1",
@@ -846,6 +864,9 @@ def parse_config(paramsfile: str, resume: bool):
         params["show_progress"] = config_run_params.getboolean("show_progress")
         params["Nburn"] = int(config_run_params["Nburn"])
         params["Nsamples"] = int(config_run_params["Nsamples"])
+        params["init_to_map"] = config_run_params.getboolean("init_to_map")
+        params["map_steps"] = int(config_run_params["map_steps"])
+        params["map_lr"] = float(config_run_params["map_lr"])
 
     else:
         raise ValueError(

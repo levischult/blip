@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import jax
 import numpyro
 from numpyro.infer import MCMC, NUTS
+from numpyro.infer.util import initialize_model
 #from numpyro.contrib.nested_sampling import NestedSampler
 from numpyro.distributions import constraints
 import numpyro.distributions as dist
@@ -113,13 +114,87 @@ class numpyro_engine():
         print("Npar = " + str(lisaobj.Model.Npar))
 
         return engine, lisaobj.Model.parameters, rng_key
-    
+
     @staticmethod
-    def run_engine(engine,lisaobj,rng_key):
-        
+    def find_map(engine, lisaModel, rng_key, Nsteps, lr):
+        '''
+
+        Optimize each chain to a maximum a posteriori point, for use as the NUTS starting point.
+        The objective is numpyro's potential function in unconstrained space, i.e. exactly the density
+        NUTS samples (including the Jacobian of the unit-cube -> real transform), so the optimum is always
+        interior to the prior bounds. Each chain is optimized independently from its own random start.
+
+        Arguments
+        ------------------------------
+        engine : numpyro.infer.MCMC
+        	MCMC engine from define_engine; supplies the model function and number of chains.
+        lisaModel : Model
+        	BLIP Model object passed to the numpyro model as its argument.
+        rng_key : jax.random.PRNGKey
+        	Key used to draw the per-chain random starting points.
+        Nsteps : int
+        	Number of Adam steps per chain.
+        lr : float
+        	Adam learning rate (step size in unconstrained space).
+
+        Returns
+        ------------------------------
+        init_params : dict
+        	Per-chain optimized latent values in unconstrained space, keyed by sample site, with a leading
+        	chain dimension when there is more than one chain. Can be passed directly to MCMC.run/warmup.
+        map_samples : numpy.ndarray
+        	Optimized transformed (physical) parameters, shape (Nchains, Npar).
+
+        '''
+        Nchains = engine.num_chains
+
+        ## one random start per chain via numpyro's default init_to_uniform (U[-2,2] in unconstrained space)
+        ## batched keys give z0 with a leading (Nchains,) dim; potential_fn/postprocess_fn act on a single chain
+        model_info = initialize_model(jax.random.split(rng_key,Nchains),engine.sampler.model,model_args=(lisaModel,))
+        z0 = model_info.param_info.z
+        potential_fn = model_info.potential_fn
+
+        optimizer = numpyro.optim.Adam(step_size=lr)
+
+        def optimize_chain(z_init):
+            def adam_step(i, opt_state):
+                grads = jax.grad(potential_fn)(optimizer.get_params(opt_state))
+                return optimizer.update(grads,opt_state)
+            opt_state = jax.lax.fori_loop(0,Nsteps,adam_step,optimizer.init(z_init))
+            z_opt = optimizer.get_params(opt_state)
+            return z_opt, potential_fn(z_opt)
+
+        ## lax.map runs chains sequentially under a single compilation, so memory use stays at one likelihood
+        ## evaluation (vmap could exhaust GPU memory for large models)
+        print("Optimizing to MAP estimate for initialization ({} chain(s), {} steps each)...".format(Nchains,Nsteps))
+        z_map, pe_map = jax.jit(lambda z: jax.lax.map(optimize_chain,z))(z0)
+        pe_map = np.asarray(pe_map)
+
+        ## fall back to the random start for any chain whose optimization diverged
+        failed = ~np.isfinite(pe_map)
+        if np.any(failed):
+            print("WARNING: MAP optimization gave a non-finite log density for chain(s) {}. Reverting these chains to their random starting points.".format(np.flatnonzero(failed)))
+            z_map = jax.tree.map(lambda zm, zi: jnp.where(failed.reshape((-1,)+(1,)*(zm.ndim-1)),zi,zm),z_map,z0)
+        for i in range(Nchains):
+            print("    Chain {}: log posterior density at MAP = {}".format(i,-pe_map[i]))
+
+        ## transformed (physical) parameters at the optimum; theta_transformed is a per-parameter list,
+        ## so transpose to (Nchains, Npar) to match the post_samples convention
+        map_samples = np.asarray(jax.vmap(model_info.postprocess_fn)(z_map)['theta_transformed']).T
+
+        ## numpyro expects no chain dim for a single chain
+        if Nchains == 1:
+            z_map = jax.tree.map(lambda x: x[0],z_map)
+
+        return z_map, map_samples
+
+    @staticmethod
+    def run_engine(engine,lisaobj,rng_key,init_params=None):
+
         # -------------------- Run HMC sampler ---------------------------
         print("Beginning sampling...")
-        engine.run(rng_key,lisaobj.Model)
+        ## init_params (unconstrained, e.g. from find_map) overrides numpyro's default initialization if given
+        engine.run(rng_key,lisaobj.Model,init_params=init_params)
         print("Sampling complete. Retrieving posterior and plotting results...")
         ## retrive samples and reformat
         post_samples = np.array(engine.get_samples()['theta_transformed']).T
@@ -145,7 +220,7 @@ class numpyro_engine():
     
     
     @staticmethod
-    def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_at,resume=False):
+    def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_at,resume=False,init_params=None):
         '''
         Runs the numpyro sampler with sampler state checkpointing. 
         
@@ -160,6 +235,9 @@ class numpyro_engine():
                                         as the recompliation and GPU off/onloading time will exceed the sampling time.
 
         resume (bool)               : Whether the run is being resumed. If so, skip the warmup phase.
+        init_params (dict)          : Initial latent values in unconstrained space (e.g. from find_map). Only used
+                                        by the first warmup/run call; ignored once a post-warmup state exists.
+                                        If None, use numpyro's default initialization.
         Returns
         --------------------
         post_samples (array)        : Posterior samples.
@@ -171,7 +249,9 @@ class numpyro_engine():
             if checkpoint_at=='warmup' or checkpoint_at=='interval':
                 print("Beginning sampling, starting warmup phase...")
                 ## run warmup phase
-                engine.warmup(rng_key,lisaModel)
+                engine.warmup(rng_key,lisaModel,init_params=init_params)
+                ## initialization is now carried by the post-warmup state
+                init_params = None
                 state = engine.post_warmup_state
                 print("Warmup phase complete. Checkpointing before initializing sampling...")
                 ## save
@@ -192,8 +272,9 @@ class numpyro_engine():
         print("Initializing sampling...")
         while True:
             
-            engine.run(rng_key,lisaModel)
-            
+            engine.run(rng_key,lisaModel,init_params=init_params)
+            init_params = None
+
             ## get state, current chain
             state = engine.last_state
             chain_update = engine.get_samples()
