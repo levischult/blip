@@ -244,17 +244,21 @@ SECTION_RUN_PARAMS = [
         "Nthreads",
         desc="""
             For multiprocessing, number of threads
-            Warning: most often, multithreading the dynesty sampler does not
-            result in significant gains as its proposal process must be serial.""",
+            For dynesty, this is the number of live point proposals evolved in parallel (dynesty's queue_size).
+            Their likelihood calls are batched into single (vectorized) evaluations on the GPU or CPU.
+            Keep Nthreads well below nlive (e.g. <= nlive/10), as queued proposals can be invalidated
+            by the rising likelihood threshold.""",
         default="1",
     ),
     Option(
         "N_GPU",
         desc="""
-            GPUs (numpyro only)
+            GPUs (numpyro and dynesty)
             Number of available GPU devices
-            If one GPU is available, Nthreads > 1 will *vectorize* chains on a single GPU.
-            If more than one GPU is available, BLIP will parallelize across GPUs, setting Nthreads=N_GPU""",
+            numpyro: If one GPU is available, Nthreads > 1 will *vectorize* chains on a single GPU.
+            If more than one GPU is available, BLIP will parallelize across GPUs, setting Nthreads=N_GPU
+            dynesty: N_GPU > 0 evaluates the likelihood on the GPU, with Nthreads parallel proposals
+            vectorized on a single GPU. Multi-GPU dynesty is not yet implemented.""",
         default="0",
     ),
     Option(
@@ -268,6 +272,13 @@ SECTION_RUN_PARAMS = [
             see https://dynesty.readthedocs.io/en/latest/quickstart.html?highlight=method#sampling-options
             rslice recommended for MW foreground analyses""",
         default="rwalk",
+    ),
+    Option(
+        "gpu_batch_size",
+        desc="""
+            Batched likelihood chunk size (dynesty only).
+            If set, batches of Nthreads likelihood evaluations are computed in chunks of this size
+            (jax.lax.map) to bound GPU memory use. If unset, the whole batch is vectorized at once.""",
     ),
     Option(
         "Nburn",
@@ -845,10 +856,10 @@ def parse_config(paramsfile: str, resume: bool):
     ## sampler selection
     params["sampler"] = config_run_params["sampler"]
 
-    ## only numpyro has GPU support
-    if misc["N_GPU"] > 0 and params["sampler"] not in ["numpyro", "numpyro_nested"]:
+    ## only numpyro and dynesty have GPU support
+    if misc["N_GPU"] > 0 and params["sampler"] not in ["numpyro", "numpyro_nested", "dynesty"]:
         raise ValueError(
-            "Only numpyro supports GPU acceleration but N_GPU ({}) > 0 and sampler is {}.".format(
+            "Only numpyro and dynesty support GPU acceleration but N_GPU ({}) > 0 and sampler is {}.".format(
                 misc["N_GPU"], params["sampler"]
             )
         )
@@ -859,6 +870,8 @@ def parse_config(paramsfile: str, resume: bool):
     ## dynesty
     if params["sampler"] == "dynesty":
         params["sample_method"] = config_run_params["sample_method"]
+        gpu_batch_size = config_run_params.get("gpu_batch_size", fallback=None)
+        params["gpu_batch_size"] = int(gpu_batch_size) if gpu_batch_size is not None else None
     ## numpyro
     elif params["sampler"] == "numpyro":
         params["show_progress"] = config_run_params.getboolean("show_progress")

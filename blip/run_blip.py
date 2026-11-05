@@ -620,31 +620,22 @@ def run_pipeline(parsed_params, resume, pre_sample_hook=None):
     if params['sampler'] == 'dynesty':
         from blip.src.dynesty_engine import dynesty_engine
 
+        ## the likelihood is a jitted JAX function on the GPU (N_GPU > 0) or CPU.
+        ## Nthreads > 1 runs that many proposals in parallel threads and batches their likelihood calls on the device
+        ## (threads rather than processes: forking a JAX/CUDA process is unsafe, and threads survive checkpoint/resume)
+        use_gpu = N_GPU > 0
+        if N_GPU > 1:
+            print("N_GPU = {}, but multi-GPU dynesty has not yet been implemented. Using one GPU.".format(N_GPU))
+
         # Create engine
         if not resume:
-            # multiprocessing
-            if nthread > 1:
-                pool = Pool(nthread)
-            else:
-                pool = None
-            engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool)    
+            lisaModel = lisa.Model
+            ## remove the functions which calculate responses so these aren't traced by JAX
+            if hasattr(lisaModel,"calculate_response_functions"):
+                delattr(lisaModel,"calculate_response_functions")
+            engine, parameters = dynesty_engine.define_engine(lisa, params, nlive, nthread, randst, gpu=use_gpu)
         else:
-            pool = None
-            if nthread > 1:
-                print("Warning: Nthread > 1, but multiprocessing is not supported when resuming a run. Pool set to None.")
-                ## To anyone reading this and wondering why:
-                ## The pickle calls used by Python's multiprocessing fail when trying to run the sampler after saving/reloading it.
-                ## This is because pickling the sampler maps all its attributes to their full paths;
-                ## e.g., dynesty_engine.isgwb_prior is named as src.dynesty_engine.dynesty_engine.isgwb_prior
-                ## BUT the object itself is still e.g. <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>
-                ## so we get an error like
-                ## _pickle.PicklingError: Can't pickle <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>: \
-                ##                        it's not the same object as src.dynesty_engine.dynesty_engine.isgwb_prior
-                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
-                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
-                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
-                
-            engine, parameters = dynesty_engine.load_engine(params,randst,pool)
+            engine, parameters = dynesty_engine.load_engine(params,randst,nthread,gpu=use_gpu)
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
@@ -657,7 +648,7 @@ def run_pipeline(parsed_params, resume, pre_sample_hook=None):
             post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
-        if nthread > 1:
+        if engine.pool is not None:
             engine.pool.close()
             engine.pool.join()
         # Save posteriors to file
